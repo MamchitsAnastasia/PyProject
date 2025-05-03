@@ -15,6 +15,7 @@ STOCK_API_KEY = os.getenv("STOCK_API_KEY")
 EXCHANGE_RATES_URL = "https://api.apilayer.com/exchangerates_data/convert"
 STOCK_URL = "https://api.twelvedata.com/price"
 
+CATEGORIES_WITHOUT_CASHBACK = ['Переводы', 'Наличные', 'Услуги банка']
 
 def get_time_for_greeting():
     """Функция возвращает «Доброе утро» / «Добрый день» / «Добрый вечер» / «Доброй ночи» в зависимости от текущего времени."""
@@ -112,6 +113,7 @@ def get_currency(path_to_json: str) -> list[dict]:
         return currency_rates
 
 def get_stock_prices(path_to_json: str) -> list[dict]:
+    """Функция принимает на вход путь к json и возвращает актуальную стоимость акций"""
     stock_rates = []
     with open(path_to_json, "r", encoding="utf-8") as file:
         data = json.load(file)
@@ -129,3 +131,20 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
                 stock_rates.append({"stock": f"{stock}", "price": f"{stock_prise}"})
     return stock_rates
 
+def get_cashback_by_category(categories_for_month: DataFrame) -> dict[str, float]:
+    """Функция принимает срез таблицы за период и возвращает кэшбэк по категориям за месяц"""
+    cashback_by_category = {}
+    categories_sorted = categories_for_month[["Сумма операции", "Кэшбэк", "Категория", "Сумма операции с округлением"]]
+
+    for index, row in categories_sorted.iterrows():
+        if row["Сумма операции"] < 0 :
+            category = str(row["Категория"])
+            total_spent = (row["Сумма операции с округлением"])
+            cashback = total_spent//100
+            if category not in CATEGORIES_WITHOUT_CASHBACK and cashback > 0:
+                if category in cashback_by_category:
+                    cashback_by_category[category] += int(cashback)
+                elif category not in cashback_by_category:
+                    cashback_by_category[category] = int(cashback)
+
+    return cashback_by_category
