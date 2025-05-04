@@ -173,4 +173,4 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 /keys.env
-/src/spending_by_category_report.json
+/data/spending_by_category_report.json
