@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, Callable, Any
@@ -26,6 +27,9 @@ def report_to_file(default_filename: str = None):
                 # Генерирую имя файла по умолчанию, если не передано
                 timestamp = datetime.now().strftime("%Y.%m.%d %H:%M:%S")
                 filename = f"report_{func.__name__}_{timestamp}.json"
+
+            # Добавляю путь к папке data
+            filename = os.path.join("data", filename)
 
             # Сохраняю результат в файл
             if isinstance(result, (pd.DataFrame, DataFrame)):
