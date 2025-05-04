@@ -132,7 +132,7 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
     return stock_rates
 
 def get_cashback_by_category(categories_for_month: DataFrame) -> dict[str, float]:
-    """Функция принимает срез таблицы за период и возвращает кэшбэк по категориям за месяц"""
+    """Функция принимает срез таблицы за месяц и возвращает кэшбэк по категориям за данный период"""
     cashback_by_category = {}
     categories_sorted = categories_for_month[["Сумма операции", "Кэшбэк", "Категория", "Сумма операции с округлением"]]
 
