@@ -70,6 +70,9 @@ def get_data_time(date_time: str, date_format: str = "%Y-%m-%d %H:%M:%S") -> lis
     """Функция принимает дату и возвращает диапазон от первого числа месяца до необходимой даты"""
     logger = None
     try:
+        logger = setup_function_logger('get_data_time')
+        logger.info(f"Начало выполнения функции с параметрами: date_time={date_time}, date_format={date_format}")
+
         # Валидация входных параметров
         if not isinstance(date_time, str):
             raise TypeError("Параметр date_time должен быть строкой")
@@ -77,9 +80,6 @@ def get_data_time(date_time: str, date_format: str = "%Y-%m-%d %H:%M:%S") -> lis
             raise TypeError("Параметр date_format должен быть строкой")
         if not date_time.strip() or not date_format.strip():
             raise ValueError("Параметры не могут быть пустыми строками")
-
-        logger = setup_function_logger('get_data_time')
-        logger.info(f"Начало выполнения функции с параметрами: date_time={date_time}, date_format={date_format}")
 
         dt = datetime.strptime(date_time, date_format)
         start_of_month = dt.replace(day=1)
@@ -102,6 +102,8 @@ def get_path_and_period(path_to_file: str, period_date: list) -> DataFrame:
     """Функция получает на вход файл формата xlsx и необходимый период, и возвращает таблицу в заданном периоде"""
     logger = None
     try:
+        logger = setup_function_logger('get_path_and_period')
+        logger.info(f"Начало выполнения функции с параметрами: path_to_file={path_to_file}, period_date={period_date}")
         # Валидация входных параметров
         if not isinstance(path_to_file, str):
             raise TypeError("Параметр path_to_file должен быть строкой")
@@ -111,9 +113,6 @@ def get_path_and_period(path_to_file: str, period_date: list) -> DataFrame:
             raise TypeError("Даты в period_date должны быть строками")
         if not os.path.exists(path_to_file):
             raise FileNotFoundError(f"Файл не найден: {path_to_file}")
-
-        logger = setup_function_logger('get_path_and_period')
-        logger.info(f"Начало выполнения функции с параметрами: path_to_file={path_to_file}, period_date={period_date}")
 
         try:
             df = pd.read_excel(path_to_file, sheet_name="Отчет по операциям")
@@ -160,6 +159,8 @@ def get_card_with_spend(sorted_df: DataFrame) -> list[dict]:
     """Функция получает срез таблицы в заданном периоде и возвращает список карт с расходами"""
     logger = None
     try:
+        logger = setup_function_logger('get_card_with_spend')
+        logger.info("Начало выполнения функции")
         # Валидация входных данных
         if not isinstance(sorted_df, DataFrame):
             raise TypeError("Входные данные должны быть pandas DataFrame")
@@ -171,10 +172,6 @@ def get_card_with_spend(sorted_df: DataFrame) -> list[dict]:
         missing_columns = [col for col in required_columns if col not in sorted_df.columns]
         if missing_columns:
             raise KeyError(f"Отсутствуют необходимые колонки: {missing_columns}")
-
-        logger = setup_function_logger('get_card_with_spend')
-        logger.info("Начало выполнения функции")
-
         try:
             card_spend_transactions = []
             card_sorted = sorted_df[["Номер карты", "Сумма операции", "Кэшбэк", "Сумма операции с округлением"]]
@@ -217,6 +214,8 @@ def get_top_transactions(sorted_df: DataFrame, get_top: int) -> list[dict]:
     """Функция получает срез таблицы в заданном периоде и возвращает топ транзакций по сумме платежа"""
     logger = None
     try:
+        logger = setup_function_logger('get_top_transactions')
+        logger.info(f"Начало выполнения функции с параметром: get_top={get_top}")
         # Валидация входных параметров
         if not isinstance(sorted_df, DataFrame):
             raise TypeError("Входные данные должны быть pandas DataFrame")
@@ -232,11 +231,6 @@ def get_top_transactions(sorted_df: DataFrame, get_top: int) -> list[dict]:
         missing_columns = [col for col in required_columns if col not in sorted_df.columns]
         if missing_columns:
             raise KeyError(f"Отсутствуют необходимые колонки: {missing_columns}")
-
-        logger = setup_function_logger('get_top_transactions')
-        logger.info(f"Начало выполнения функции с параметром: get_top={get_top}")
-
-
         try:
             top_pay_transactions = []
             sorted_pay_df = sorted_df.sort_values(by="Сумма операции", ascending=False) #Сортирую таблицу по сумме операций по убыванию
@@ -272,6 +266,8 @@ def get_currency(path_to_json: str) -> list[dict]:
     """Функция принимает на вход путь к json и возвращает курс валют"""
     logger = None
     try:
+        logger = setup_function_logger('get_currency')
+        logger.info(f"Начало выполнения функции с параметром: path_to_json={path_to_json}")
         # Валидация входных параметров
         if not isinstance(path_to_json, str):
             raise ValueError("path_to_json должен быть строкой")
@@ -279,10 +275,6 @@ def get_currency(path_to_json: str) -> list[dict]:
             raise ValueError("path_to_json не может быть пустой строкой")
         if not os.path.exists(path_to_json):
             raise FileNotFoundError(f"Файл не найден: {path_to_json}")
-
-        logger = setup_function_logger('get_currency')
-        logger.info(f"Начало выполнения функции с параметром: path_to_json={path_to_json}")
-
         currency_rates = []
         try:
             with open(path_to_json, "r", encoding="utf-8") as file:
@@ -358,6 +350,8 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
     """Функция принимает на вход путь к json и возвращает актуальную стоимость акций"""
     logger = None
     try:
+        logger = setup_function_logger('get_stock_prices')
+        logger.info(f"Начало выполнения функции с параметром: path_to_json={path_to_json}")
         # Валидация входных параметров
         if not isinstance(path_to_json, str):
             raise ValueError("path_to_json должен быть строкой")
@@ -365,10 +359,6 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
             raise ValueError("path_to_json не может быть пустой строкой")
         if not os.path.exists(path_to_json):
             raise FileNotFoundError(f"Файл не найден: {path_to_json}")
-
-        logger = setup_function_logger('get_stock_prices')
-        logger.info(f"Начало выполнения функции с параметром: path_to_json={path_to_json}")
-
         stock_rates = []
 
         try:
@@ -442,6 +432,8 @@ def get_cashback_by_category(categories_for_month: DataFrame) -> dict[str, float
     """Функция принимает срез таблицы за месяц и возвращает кэшбэк по категориям за данный период"""
     logger = None
     try:
+        logger = setup_function_logger('get_cashback_by_category')
+        logger.info("Начало выполнения функции")
         # Валидация входных данных
         if not isinstance(categories_for_month, DataFrame):
             raise TypeError("Входные данные должны быть pandas DataFrame")
@@ -453,10 +445,6 @@ def get_cashback_by_category(categories_for_month: DataFrame) -> dict[str, float
         missing_columns = [col for col in required_columns if col not in categories_for_month.columns]
         if missing_columns:
             raise KeyError(f"Отсутствуют необходимые колонки: {missing_columns}")
-
-        logger = setup_function_logger('get_cashback_by_category')
-        logger.info("Начало выполнения функции")
-
         cashback_by_category = {}
 
         try:
