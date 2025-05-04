@@ -1,5 +1,6 @@
 import json
 import os
+import pytest
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, Callable, Any
@@ -7,8 +8,9 @@ from typing import Optional, Callable, Any
 import pandas as pd
 from pandas import DataFrame
 
-from src.utils import get_path_and_period
+from src.utils import get_path_and_period, setup_function_logger
 
+PATH_TO_FILE = "../data/operations.xlsx"
 
 def report_to_file(default_filename: str = None):
     """Декоратор для сохранения результатов отчетов в файл.
@@ -47,21 +49,48 @@ def report_to_file(default_filename: str = None):
 @report_to_file(default_filename="spending_by_category_report.json")
 def spending_by_category(path_to_file: str, category: str, date: Optional[str] = None) -> DataFrame:
     """Функция принимает файл формата xlsx, название категории и дату, и возвращает файл с тратами по категории за последние 3 месяца"""
+    logger = None
+    try:
+        logger = setup_function_logger('spending_by_category')
+        logger.info(
+            f"Начало выполнения функции с параметрами: path_to_file={path_to_file}, category={category}, date={date}")
 
-    # Преобразую дату
-    if date is None:
-        end_date = datetime.now()
-    else:
-        end_date = datetime.strptime(date, "%Y.%m.%d %H:%M:%S")
-    start_date = end_date - timedelta(days=90)
-    period_date = [
-        start_date.strftime("%d.%m.%Y %H:%M:%S"),
-        end_date.strftime("%d.%m.%Y %H:%M:%S")
-    ]
+        # Валидация входных параметров
+        if not isinstance(path_to_file, str):
+            raise TypeError("Параметр path_to_file должен быть строкой")
+        if not isinstance(category, str):
+            raise TypeError("Параметр category должен быть строкой")
+        if not path_to_file.strip() or not category.strip():
+            raise ValueError("Параметры path_to_file и category не могут быть пустыми строками")
+        if date is not None and not isinstance(date, str):
+            raise TypeError("Параметр date должен быть строкой или None")
 
-    transactions_df = get_path_and_period("../data/operations.xlsx", period_date)
-    transactions_for_three_months = transactions_df[transactions_df["Категория"] == category]
+        # Преобразую дату
+        try:
+            if date is None:
+                end_date = datetime.now()
+            else:
+                end_date = datetime.strptime(date, "%Y.%m.%d %H:%M:%S")
 
-    return transactions_for_three_months
+            start_date = end_date - timedelta(days=90)
+            period_date = [
+                start_date.strftime("%d.%m.%Y %H:%M:%S"),
+                end_date.strftime("%d.%m.%Y %H:%M:%S")
+            ]
+        except ValueError as e:
+            logger.error(f"Ошибка формата даты: {str(e)}")
+            raise ValueError(f"Некорректный формат даты. Ожидается: 'YYYY.MM.DD HH:MM:SS'") from e
 
-print(spending_by_category("../data/operations.xlsx", "Другое", "2020.04.22 12:00:00"))
+        try:
+            transactions_df = get_path_and_period(path_to_file, period_date)
+            transactions_for_three_months = transactions_df[transactions_df["Категория"] == category]
+
+            logger.info(f"Функция отработала успешно. Найдено транзакций: {len(transactions_for_three_months)}")
+            return transactions_for_three_months
+        except Exception as e:
+            logger.error(f"Ошибка при обработке данных: {str(e)}")
+            raise Exception(f"Ошибка при обработке данных: {str(e)}") from e
+    except Exception as e:
+        if logger:
+            logger.error(f"Ошибка в функции: {str(e)}")
+            raise Exception(f"Ошибка в функции: {str(e)}") from e
