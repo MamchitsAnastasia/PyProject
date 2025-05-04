@@ -19,13 +19,14 @@ def main_info(date_time: str) -> dict[str, Any]:
     """Функция принимает строку с датой в формате YYYY-MM-DD HH:MM:SS и возвращающую JSON-ответ """
     logger = None
     try:
-        logger = setup_function_logger('get_time_for_greeting')
+        logger = setup_function_logger('main_info')
         logger.info("Начало выполнения функции")
 
         # Валидация формата даты
         try:
             datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")
         except ValueError as e:
+            logger.error(f"Ошибка формата даты: {str(e)}")
             raise
 
         time_period = get_data_time(date_time)

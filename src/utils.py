@@ -17,16 +17,18 @@ STOCK_API_KEY = os.getenv("STOCK_API_KEY")
 EXCHANGE_RATES_URL = "https://api.apilayer.com/exchangerates_data/convert"
 STOCK_URL = "https://api.twelvedata.com/price"
 
-CATEGORIES_WITHOUT_CASHBACK = ['Переводы', 'Наличные', 'Услуги банка']
+CATEGORIES_WITHOUT_CASHBACK = ['Переводы', 'Наличные', 'Услуги банка', 'Госуслуги']
 
 
 def setup_function_logger(func_name):
     """Функция создает и настраивает логгер для конкретной функции"""
+    os.makedirs("logs", exist_ok=True)
     logger = logging.getLogger(func_name)
     logger.setLevel(logging.DEBUG)
     # Настройка обработчика для записи в файл
+    logger.propagate = False
     log_file = os.path.join("logs", f'{func_name}.log')
-    handler = logging.FileHandler(log_file)
+    handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
     handler.setLevel(logging.DEBUG)
     # Формат записи логов
     formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -45,6 +47,7 @@ def get_time_for_greeting():
         try:
             user_datatime_hour = datetime.now().hour
             if not isinstance(user_datatime_hour, int):
+                logger.error("Невозможно определить текущий час")
                 raise RuntimeError("Невозможно определить текущий час")
             if 5 <= user_datatime_hour < 12:
                 result = "Доброе утро"
@@ -75,10 +78,13 @@ def get_data_time(date_time: str, date_format: str = "%Y-%m-%d %H:%M:%S") -> lis
 
         # Валидация входных параметров
         if not isinstance(date_time, str):
+            logger.error("Параметр date_time должен быть строкой")
             raise TypeError("Параметр date_time должен быть строкой")
         if not isinstance(date_format, str):
+            logger.error("Параметр date_format должен быть строкой")
             raise TypeError("Параметр date_format должен быть строкой")
         if not date_time.strip() or not date_format.strip():
+            logger.error("Параметры не могут быть пустыми строками")
             raise ValueError("Параметры не могут быть пустыми строками")
 
         dt = datetime.strptime(date_time, date_format)
@@ -106,17 +112,22 @@ def get_path_and_period(path_to_file: str, period_date: list) -> DataFrame:
         logger.info(f"Начало выполнения функции с параметрами: path_to_file={path_to_file}, period_date={period_date}")
         # Валидация входных параметров
         if not isinstance(path_to_file, str):
+            logger.error("Параметр path_to_file должен быть строкой")
             raise TypeError("Параметр path_to_file должен быть строкой")
         if not isinstance(period_date, list) or len(period_date) != 2:
+            logger.error("Параметр period_date должен быть списком с двумя элементами")
             raise ValueError("Параметр period_date должен быть списком с двумя элементами")
         if not all(isinstance(date, str) for date in period_date):
+            logger.error("Даты в period_date должны быть строками")
             raise TypeError("Даты в period_date должны быть строками")
         if not os.path.exists(path_to_file):
+            logger.error(f"Файл не найден: {path_to_file}")
             raise FileNotFoundError(f"Файл не найден: {path_to_file}")
 
         try:
             df = pd.read_excel(path_to_file, sheet_name="Отчет по операциям")
             if "Дата операции" not in df.columns:
+                logger.error("В файле отсутствует колонка 'Дата операции'")
                 raise KeyError("В файле отсутствует колонка 'Дата операции'")
 
             df["Дата операции"] = pd.to_datetime(df["Дата операции"], dayfirst=True) #Перевожу в формат datetime, ранжирую по дню
@@ -124,6 +135,7 @@ def get_path_and_period(path_to_file: str, period_date: list) -> DataFrame:
             end_date = datetime.strptime(period_date[1], "%d.%m.%Y %H:%M:%S")
 
             if start_date > end_date:
+                logger.error("Начальная дата периода не может быть больше конечной")
                 raise ValueError("Начальная дата периода не может быть больше конечной")
 
             filtered_df = df[(df["Дата операции"] >= start_date) & (df["Дата операции"] <= end_date)]
@@ -163,14 +175,17 @@ def get_card_with_spend(sorted_df: DataFrame) -> list[dict]:
         logger.info("Начало выполнения функции")
         # Валидация входных данных
         if not isinstance(sorted_df, DataFrame):
+            logger.error("Входные данные должны быть pandas DataFrame")
             raise TypeError("Входные данные должны быть pandas DataFrame")
         if sorted_df.empty:
+            logger.error("Входной DataFrame не может быть пустым")
             raise ValueError("Входной DataFrame не может быть пустым")
 
         # Проверка наличия необходимых колонок
         required_columns = ["Номер карты", "Сумма операции", "Кэшбэк", "Сумма операции с округлением"]
         missing_columns = [col for col in required_columns if col not in sorted_df.columns]
         if missing_columns:
+            logger.error(f"Отсутствуют необходимые колонки: {missing_columns}")
             raise KeyError(f"Отсутствуют необходимые колонки: {missing_columns}")
         try:
             card_spend_transactions = []
@@ -218,18 +233,23 @@ def get_top_transactions(sorted_df: DataFrame, get_top: int) -> list[dict]:
         logger.info(f"Начало выполнения функции с параметром: get_top={get_top}")
         # Валидация входных параметров
         if not isinstance(sorted_df, DataFrame):
+            logger.error("Входные данные должны быть pandas DataFrame")
             raise TypeError("Входные данные должны быть pandas DataFrame")
         if not isinstance(get_top, int):
+            logger.error("get_top должен быть целым числом")
             raise TypeError("get_top должен быть целым числом")
         if get_top <= 0:
+            logger.error("get_top должен быть положительным числом")
             raise ValueError("get_top должен быть положительным числом")
         if sorted_df.empty:
+            logger.error("Входной DataFrame не может быть пустым")
             raise ValueError("Входной DataFrame не может быть пустым")
 
         # Проверка наличия необходимых колонок
         required_columns = ["Дата платежа", "Сумма операции", "Категория", "Описание"]
         missing_columns = [col for col in required_columns if col not in sorted_df.columns]
         if missing_columns:
+            logger.error(f"Отсутствуют необходимые колонки: {missing_columns}")
             raise KeyError(f"Отсутствуют необходимые колонки: {missing_columns}")
         try:
             top_pay_transactions = []
@@ -270,21 +290,26 @@ def get_currency(path_to_json: str) -> list[dict]:
         logger.info(f"Начало выполнения функции с параметром: path_to_json={path_to_json}")
         # Валидация входных параметров
         if not isinstance(path_to_json, str):
+            logger.error("path_to_json должен быть строкой")
             raise ValueError("path_to_json должен быть строкой")
         if not path_to_json.strip():
+            logger.error("path_to_json не может быть пустой строкой")
             raise ValueError("path_to_json не может быть пустой строкой")
         if not os.path.exists(path_to_json):
+            logger.error(f"Файл не найден: {path_to_json}")
             raise FileNotFoundError(f"Файл не найден: {path_to_json}")
         currency_rates = []
         try:
             with open(path_to_json, "r", encoding="utf-8") as file:
                 data = json.load(file)
                 if "user_currencies" not in data:
+                    logger.error("Отсутствует обязательное поле 'user_currencies' в JSON")
                     raise KeyError("Отсутствует обязательное поле 'user_currencies' в JSON")
 
                 user_currencies = data["user_currencies"]
 
                 if not isinstance(user_currencies, list):
+                    logger.error("user_currencies должен быть списком")
                     raise ValueError("user_currencies должен быть списком")
                 if not user_currencies:
                     logger.warning("Список валют пуст")
@@ -293,6 +318,7 @@ def get_currency(path_to_json: str) -> list[dict]:
                 for currency in user_currencies:
                     try:
                         if not isinstance(currency, str):
+                            logger.error(f"Код валюты должен быть строкой, получено: {type(currency)}")
                             raise ValueError(f"Код валюты должен быть строкой, получено: {type(currency)}")
                         params = {
                             "amount": 1,
@@ -307,6 +333,7 @@ def get_currency(path_to_json: str) -> list[dict]:
                         result = response.json()
 
                         if "query" not in result or "result" not in result:
+                            logger.error("Некорректный формат ответа от API")
                             raise ValueError("Некорректный формат ответа от API")
 
                         currency_code_response = result["query"]["from"]
@@ -354,10 +381,13 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
         logger.info(f"Начало выполнения функции с параметром: path_to_json={path_to_json}")
         # Валидация входных параметров
         if not isinstance(path_to_json, str):
+            logger.error("path_to_json должен быть строкой")
             raise ValueError("path_to_json должен быть строкой")
         if not path_to_json.strip():
+            logger.error("path_to_json не может быть пустой строкой")
             raise ValueError("path_to_json не может быть пустой строкой")
         if not os.path.exists(path_to_json):
+            logger.error(f"Файл не найден: {path_to_json}")
             raise FileNotFoundError(f"Файл не найден: {path_to_json}")
         stock_rates = []
 
@@ -366,11 +396,13 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
                 data = json.load(file)
 
                 if "user_stocks" not in data:
+                    logger.error("Отсутствует обязательное поле 'user_stocks' в JSON")
                     raise KeyError("Отсутствует обязательное поле 'user_stocks' в JSON")
 
                 user_stocks = data["user_stocks"]
 
                 if not isinstance(user_stocks, list):
+                    logger.error("user_stocks должен быть списком")
                     raise ValueError("user_stocks должен быть списком")
                 if not user_stocks:
                     logger.warning("Список акций пуст")
@@ -379,6 +411,7 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
                 for stock in user_stocks:
                     try:
                         if not isinstance(stock, str):
+                            logger.error(f"Тикер акции должен быть строкой, получено: {type(stock)}")
                             raise ValueError(f"Тикер акции должен быть строкой, получено: {type(stock)}")
 
                         params = {"symbol": f"{stock}",
@@ -388,10 +421,12 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
                         result = response.json()
 
                         if "price" not in result:
+                            logger.error("Некорректный формат ответа от API - отсутствует поле 'price'")
                             raise ValueError("Некорректный формат ответа от API - отсутствует поле 'price'")
                         try:
                             stock_prise = round(float(result["price"]), 2)
                         except (ValueError, TypeError):
+                            logger.error(f"Некорректное значение цены: {result['price']}")
                             raise ValueError(f"Некорректное значение цены: {result['price']}")
 
                         stock_rates.append({"stock": f"{stock}", "price": f"{stock_prise}"})
@@ -436,14 +471,17 @@ def get_cashback_by_category(categories_for_month: DataFrame) -> dict[str, float
         logger.info("Начало выполнения функции")
         # Валидация входных данных
         if not isinstance(categories_for_month, DataFrame):
+            logger.error("Входные данные должны быть pandas DataFrame")
             raise TypeError("Входные данные должны быть pandas DataFrame")
         if categories_for_month.empty:
+            logger.error("DataFrame не может быть пустым")
             raise ValueError("DataFrame не может быть пустым")
 
         # Проверка наличия необходимых колонок
         required_columns = ["Сумма операции", "Кэшбэк", "Категория", "Сумма операции с округлением"]
         missing_columns = [col for col in required_columns if col not in categories_for_month.columns]
         if missing_columns:
+            logger.error(f"Отсутствуют необходимые колонки: {missing_columns}")
             raise KeyError(f"Отсутствуют необходимые колонки: {missing_columns}")
         cashback_by_category = {}
 
