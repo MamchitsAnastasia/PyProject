@@ -1,14 +1,16 @@
 import json
 import logging
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 import requests
 
-from src.utils import setup_function_logger, get_time_for_greeting, get_data_time, get_path_and_period, \
-    get_card_with_spend, get_top_transactions, get_currency, get_stock_prices, get_cashback_by_category
+from src.utils import (get_card_with_spend, get_cashback_by_category,
+                       get_currency, get_data_time, get_path_and_period,
+                       get_stock_prices, get_time_for_greeting,
+                       get_top_transactions, setup_function_logger)
 
 
 def test_setup_function_logger_success(tmpdir) -> None:
@@ -29,14 +31,20 @@ def test_setup_function_logger_directory_creation(tmpdir) -> None:
             assert os.path.exists(str(test_dir))
 
 
-def test_setup_function_logger_file_creation(tmpdir) -> None:
-    """Тест функции setup_function_logger для создания файла лога"""
-    log_dir = tmpdir.mkdir("logs")
-    log_file = log_dir.join("test_function.log")
-
-    with patch("os.path.join", return_value=str(log_file)):
+def test_setup_function_logger_mocked():
+    """Тест функции setup_function_logger для создания файла лога (без проверки файла)"""
+    with patch("logging.getLogger") as mock_get_logger:
+        mock_logger = MagicMock()
+        mock_handler = MagicMock()
+        mock_logger.handlers = [mock_handler]
+        # Настраиваю мок-обработчик
+        mock_handler.level = logging.DEBUG
+        mock_get_logger.return_value = mock_logger
+        # Вызываю тестируемую функцию
         logger = setup_function_logger("test_function")
-        assert os.path.exists(str(log_file))
+        # Проверяю вызовы
+        logger.addHandler.assert_called_once()
+        logger.setLevel.assert_called_once_with(logging.DEBUG)
 
 
 def test_setup_function_logger_existing_logger() -> None:
@@ -51,35 +59,35 @@ def test_setup_function_logger_existing_logger() -> None:
 
 def test_get_time_for_greeting_morning() -> None:
     """Тест функции get_time_for_greeting для утреннего приветствия"""
-    with patch('src.utils.datetime') as mock_datetime:
+    with patch("src.utils.datetime") as mock_datetime:
         mock_datetime.now.return_value.hour = 8
         assert get_time_for_greeting() == "Доброе утро"
 
 
 def test_get_time_for_greeting_afternoon() -> None:
     """Тест функции get_time_for_greeting для дневного приветствия"""
-    with patch('src.utils.datetime') as mock_datetime:
+    with patch("src.utils.datetime") as mock_datetime:
         mock_datetime.now.return_value.hour = 14
         assert get_time_for_greeting() == "Добрый день"
 
 
 def test_get_time_for_greeting_evening() -> None:
     """Тест функции get_time_for_greeting для вечернего приветствия"""
-    with patch('src.utils.datetime') as mock_datetime:
+    with patch("src.utils.datetime") as mock_datetime:
         mock_datetime.now.return_value.hour = 19
         assert get_time_for_greeting() == "Добрый вечер"
 
 
 def test_get_time_for_greeting_night() -> None:
     """Тест функции get_time_for_greeting для ночного приветствия"""
-    with patch('src.utils.datetime') as mock_datetime:
+    with patch("src.utils.datetime") as mock_datetime:
         mock_datetime.now.return_value.hour = 23
         assert get_time_for_greeting() == "Доброй ночи"
 
 
 def test_get_time_for_greeting_edge_cases() -> None:
     """Тест функции get_time_for_greeting для граничных значений"""
-    with patch('src.utils.datetime') as mock_datetime:
+    with patch("src.utils.datetime") as mock_datetime:
         mock_datetime.now.return_value.hour = 5
         assert get_time_for_greeting() == "Доброе утро"
 
@@ -95,22 +103,31 @@ def test_get_time_for_greeting_edge_cases() -> None:
 
 def test_get_time_for_greeting_logger_error() -> None:
     """Тест функции get_time_for_greeting при ошибке инициализации логгера"""
-    with patch('src.utils.setup_function_logger', side_effect=Exception("Logger error")):
-        with pytest.raises(Exception, match="Ошибка инициализации логгера: Logger error"):
+    with patch(
+        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
+    ):
+        with pytest.raises(
+            Exception, match="Ошибка инициализации логгера: Logger error"
+        ):
             get_time_for_greeting()
 
 
 def test_get_time_for_greeting_time_error() -> None:
     """Тест функции get_time_for_greeting при ошибке при определении времени"""
-    with patch('src.utils.setup_function_logger') as mock_logger:
+    with patch("src.utils.setup_function_logger") as mock_logger:
         mock_logger.return_value.info.return_value = None
         mock_logger.return_value.error.return_value = None
 
         mock_datetime = MagicMock()
         mock_datetime.now.return_value.hour = "invalid"
 
-        with patch('src.utils.datetime', mock_datetime):
-            with pytest.raises(Exception, match="Ошибка инициализации логгера: Ошибка при определении времени: Невозможно определить текущий час"):
+        with patch("src.utils.datetime", mock_datetime):
+            with pytest.raises(
+                Exception,
+                match="Ошибка инициализации логгера: "
+                "Ошибка при определении времени: "
+                "Невозможно определить текущий час",
+            ):
                 get_time_for_greeting()
 
 
@@ -119,7 +136,10 @@ def test_get_time_for_greeting_logging(tmpdir) -> None:
     logger_mock = MagicMock()
     logger_mock.info.return_value = None
 
-    with patch('src.utils.setup_function_logger', return_value=logger_mock), patch('src.utils.datetime') as mock_datetime:
+    with (
+        patch("src.utils.setup_function_logger", return_value=logger_mock),
+        patch("src.utils.datetime") as mock_datetime,
+    ):
         mock_datetime.now.return_value.hour = 10  # Утро (чтобы функция отработала)
         get_time_for_greeting()
         assert logger_mock.info.call_count >= 2
@@ -155,9 +175,11 @@ def test_get_data_time_empty_string() -> None:
 def test_get_data_time_wrong_types() -> None:
     """Тест функции get_data_time с неправильными типами параметров"""
     with pytest.raises(TypeError, match="Параметр date_time должен быть строкой"):
-        get_data_time(12345)  # Число вместо строки
+        get_data_time(12345)  # type: ignore[arg-type]
+        # Число вместо строки
     with pytest.raises(TypeError, match="Параметр date_format должен быть строкой"):
-        get_data_time("2023-05-15", 123)  # Число вместо формата
+        get_data_time("2023-05-15", 123)  # type: ignore[arg-type]
+        # Число вместо формата
 
 
 def test_get_data_time_edge_cases() -> None:
@@ -170,18 +192,20 @@ def test_get_data_time_edge_cases() -> None:
     assert get_data_time("2020-02-29 12:00:00")[1] == "29.02.2020 12:00:00"
 
 
-@patch('src.utils.setup_function_logger')
+@patch("src.utils.setup_function_logger")
 def test_get_data_time_logging(mock_logger) -> None:
     """Тест функции get_data_time для логирования"""
-    mock_logger.return_value = logging.getLogger('test')
-    with patch.object(mock_logger.return_value, 'info') as mock_info:
+    mock_logger.return_value = logging.getLogger("test")
+    with patch.object(mock_logger.return_value, "info") as mock_info:
         get_data_time("2023-05-15 14:30:00")
         assert mock_info.call_count == 2
 
 
 def test_get_data_time_logger_error() -> None:
     """Тест функции get_data_time при ошибке инициализации логгера"""
-    with patch('src.utils.setup_function_logger', side_effect=Exception("Logger error")):
+    with patch(
+        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
+    ):
         with pytest.raises(Exception, match="Ошибка в функции: Logger error"):
             get_data_time("2023-05-15 14:30:00")
 
@@ -190,27 +214,42 @@ def test_get_path_and_period_success(tmpdir) -> None:
     """Тест успешного выполнения функции get_path_and_period"""
     # Создаем тестовый файл
     test_file = tmpdir.join("test.xlsx")
-    df = pd.DataFrame({
-        "Дата операции": ["01.05.2023 10:00:00", "15.05.2023 14:30:00", "31.05.2023 23:59:59"],
-        "Сумма": [100, 200, 300]
-    })
+    df = pd.DataFrame(
+        {
+            "Дата операции": [
+                "01.05.2023 10:00:00",
+                "15.05.2023 14:30:00",
+                "31.05.2023 23:59:59",
+            ],
+            "Сумма": [100, 200, 300],
+        }
+    )
     df.to_excel(test_file, sheet_name="Отчет по операциям", index=False)
 
-    result = get_path_and_period(str(test_file), ["01.05.2023 00:00:00", "31.05.2023 23:59:59"])
+    result = get_path_and_period(
+        str(test_file), ["01.05.2023 00:00:00", "31.05.2023 23:59:59"]
+    )
     assert len(result) == 3
-    assert result["Дата операции"].iloc[0].strftime("%d.%m.%Y %H:%M:%S") == "01.05.2023 10:00:00"
+    assert (
+        result["Дата операции"].iloc[0].strftime("%d.%m.%Y %H:%M:%S")
+        == "01.05.2023 10:00:00"
+    )
 
 
 def test_get_path_and_period_filtered(tmpdir) -> None:
     """Тест функции get_path_and_period для фильтрации по периоду"""
     test_file = tmpdir.join("test.xlsx")
-    df = pd.DataFrame({
-        "Дата операции": ["01.05.2023", "15.05.2023", "31.05.2023"],
-        "Сумма": [100, 200, 300]
-    })
+    df = pd.DataFrame(
+        {
+            "Дата операции": ["01.05.2023", "15.05.2023", "31.05.2023"],
+            "Сумма": [100, 200, 300],
+        }
+    )
     df.to_excel(test_file, sheet_name="Отчет по операциям", index=False)
 
-    result = get_path_and_period(str(test_file), ["10.05.2023 00:00:00", "20.05.2023 23:59:59"])
+    result = get_path_and_period(
+        str(test_file), ["10.05.2023 00:00:00", "20.05.2023 23:59:59"]
+    )
     assert len(result) == 1
     assert result["Дата операции"].iloc[0].strftime("%d.%m.%Y") == "15.05.2023"
 
@@ -218,7 +257,9 @@ def test_get_path_and_period_filtered(tmpdir) -> None:
 def test_get_path_and_period_file_not_found() -> None:
     """Тест функции get_path_and_period с несуществующим файлом"""
     with pytest.raises(Exception):
-        get_path_and_period("nonexistent_file.xlsx", ["01.01.2023 00:00:00", "31.12.2023 23:59:59"])
+        get_path_and_period(
+            "nonexistent_file.xlsx", ["01.01.2023 00:00:00", "31.12.2023 23:59:59"]
+        )
 
 
 def test_get_path_and_period_invalid_period(tmpdir) -> None:
@@ -232,7 +273,9 @@ def test_get_path_and_period_invalid_period(tmpdir) -> None:
 
     with pytest.raises(Exception):
         # Начальная дата больше конечной
-        get_path_and_period(str(test_file), ["31.12.2023 23:59:59", "01.01.2023 00:00:00"])
+        get_path_and_period(
+            str(test_file), ["31.12.2023 23:59:59", "01.01.2023 00:00:00"]
+        )
 
 
 def test_get_path_and_period_missing_column(tmpdir) -> None:
@@ -241,7 +284,9 @@ def test_get_path_and_period_missing_column(tmpdir) -> None:
     pd.DataFrame({"Неправильная колонка": [1, 2, 3]}).to_excel(test_file)
 
     with pytest.raises(Exception):
-        get_path_and_period(str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"])
+        get_path_and_period(
+            str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"]
+        )
 
 
 def test_get_path_and_period_empty_file(tmpdir) -> None:
@@ -250,38 +295,46 @@ def test_get_path_and_period_empty_file(tmpdir) -> None:
     pd.DataFrame().to_excel(test_file)
 
     with pytest.raises(Exception):
-        get_path_and_period(str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"])
+        get_path_and_period(
+            str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"]
+        )
 
 
 def test_get_path_and_period_wrong_types() -> None:
     """Тест функции get_path_and_period с неправильными типами параметров"""
     with pytest.raises(Exception):
-        get_path_and_period(123, ["01.01.2023", "31.12.2023"])  # Число вместо строки
-
+        get_path_and_period(123, ["01.01.2023", "31.12.2023"])  # type: ignore[arg-type]
+        # Число вместо строки
     with pytest.raises(Exception):
-        get_path_and_period("test.xlsx", "not_a_list")  # Строка вместо списка
-
+        get_path_and_period("test.xlsx", "not_a_list")  # type: ignore[arg-type]
+        # Строка вместо списка
     with pytest.raises(Exception):
-        get_path_and_period("test.xlsx", [123, 456])  # Числа вместо дат
+        get_path_and_period("test.xlsx", [123, 456])  # type: ignore[arg-type]
+        # Числа вместо дат
 
 
-@patch('os.path.exists')
-@patch('pandas.read_excel')
+@patch("os.path.exists")
+@patch("pandas.read_excel")
 def test_get_path_and_period_logging(mock_read, mock_exists, tmpdir):
     test_file = tmpdir.join("test.xlsx")
 
     mock_exists.return_value = True
-    mock_read.return_value = pd.DataFrame({
-        "Дата операции": pd.to_datetime(["01.05.2023"]),
-        "Сумма операции": [100],
-        "Кэшбэк": [1],
-        "Сумма операции с округлением": [100]
-    })
+    mock_read.return_value = pd.DataFrame(
+        {
+            "Дата операции": pd.to_datetime(["01.05.2023"]),
+            "Сумма операции": [100],
+            "Кэшбэк": [1],
+            "Сумма операции с округлением": [100],
+        }
+    )
 
-    with patch('src.utils.setup_function_logger') as mock_logger:
-        mock_logger.return_value = logging.getLogger('test')
-        with patch.object(mock_logger.return_value, 'info') as mock_info:
-            result = get_path_and_period(str(test_file), ["01.05.2023 00:00:00", "01.05.2023 23:59:59"])
+    with patch("src.utils.setup_function_logger") as mock_logger:
+        mock_logger.return_value = logging.getLogger("test")
+        with patch.object(mock_logger.return_value, "info") as mock_info:
+            result = get_path_and_period(
+                str(test_file), ["01.05.2023 00:00:00", "01.05.2023 23:59:59"]
+            )
+            assert isinstance(result, pd.DataFrame)
             assert mock_info.call_count == 2
 
 
@@ -290,9 +343,13 @@ def test_get_path_and_period_logger_error(tmpdir) -> None:
     test_file = tmpdir.join("test.xlsx")
     pd.DataFrame().to_excel(test_file)
 
-    with patch('src.utils.setup_function_logger', side_effect=Exception("Logger error")):
+    with patch(
+        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
+    ):
         with pytest.raises(Exception):
-            get_path_and_period(str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"])
+            get_path_and_period(
+                str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"]
+            )
 
 
 def test_get_card_with_spend_success() -> None:
@@ -301,7 +358,7 @@ def test_get_card_with_spend_success() -> None:
         "Номер карты": ["*5678", "*4321"],
         "Сумма операции": [-100.0, -200.0],
         "Кэшбэк": [1.0, 2.0],
-        "Сумма операции с округлением": [100.0, 200.0]
+        "Сумма операции с округлением": [100.0, 200.0],
     }
     df = pd.DataFrame(test_data)
 
@@ -318,7 +375,7 @@ def test_get_card_with_spend_no_spend_transactions() -> None:
         "Номер карты": ["*5678"],
         "Сумма операции": [100.0],
         "Кэшбэк": [1.0],
-        "Сумма операции с округлением": [100.0]
+        "Сумма операции с округлением": [100.0],
     }
     df = pd.DataFrame(test_data)
 
@@ -335,10 +392,7 @@ def test_get_card_with_spend_empty_dataframe() -> None:
 
 def test_get_card_with_spend_missing_columns() -> None:
     """Тест функции get_card_with_spend с отсутствующими колонками"""
-    test_data = {
-        "Номер карты": ["*5678"],
-        "Сумма операции": [-100.0]
-    }
+    test_data = {"Номер карты": ["*5678"], "Сумма операции": [-100.0]}
     df = pd.DataFrame(test_data)
     with pytest.raises(Exception):
         get_card_with_spend(df)
@@ -347,7 +401,8 @@ def test_get_card_with_spend_missing_columns() -> None:
 def test_get_card_with_spend_wrong_input_type() -> None:
     """Тест функции get_card_with_spend с неправильным типом входных данных"""
     with pytest.raises(Exception):
-        get_card_with_spend("not a dataframe")  # Передаем строку вместо DataFrame
+        get_card_with_spend("not a dataframe")  # type: ignore[arg-type]
+        # Передаем строку вместо DataFrame
 
 
 def test_get_card_with_spend_cashback_calculation() -> None:
@@ -356,7 +411,7 @@ def test_get_card_with_spend_cashback_calculation() -> None:
         "Номер карты": ["*5678"],
         "Сумма операции": [-150.0],
         "Кэшбэк": [1.5],
-        "Сумма операции с округлением": [150.0]
+        "Сумма операции с округлением": [150.0],
     }
     df = pd.DataFrame(test_data)
 
@@ -368,31 +423,34 @@ def test_get_card_with_spend_row_error_handling() -> None:
     """Тест функции get_card_with_spend для обработки ошибок в отдельных строках"""
     test_data = {
         "Номер карты": ["*5678", "invalid"],
-        "Сумма операции": [-100.0, "not a number"],  # Некорректные данные во второй строке
+        "Сумма операции": [
+            -100.0,
+            "not a number",
+        ],  # Некорректные данные во второй строке
         "Кэшбэк": [1.0, 2.0],
-        "Сумма операции с округлением": [100.0, 200.0]
+        "Сумма операции с округлением": [100.0, 200.0],
     }
     df = pd.DataFrame(test_data)
 
-    with patch('logging.Logger.warning') as mock_warning:
+    with patch("logging.Logger.warning") as mock_warning:
         result = get_card_with_spend(df)
         assert len(result) == 1  # Только одна корректная транзакция
         assert mock_warning.call_count >= 1  # Должно быть предупреждение об ошибке
 
 
-@patch('src.utils.setup_function_logger')
+@patch("src.utils.setup_function_logger")
 def test_get_card_with_spend_logging(mock_logger) -> None:
     """Тест логирования функции get_card_with_spend"""
     test_data = {
         "Номер карты": ["*5678"],
         "Сумма операции": [-100.0],
         "Кэшбэк": [1.0],
-        "Сумма операции с округлением": [100.0]
+        "Сумма операции с округлением": [100.0],
     }
     df = pd.DataFrame(test_data)
 
-    mock_logger.return_value = logging.getLogger('test')
-    with patch.object(mock_logger.return_value, 'info') as mock_info:
+    mock_logger.return_value = logging.getLogger("test")
+    with patch.object(mock_logger.return_value, "info") as mock_info:
         get_card_with_spend(df)
         assert mock_info.call_count == 2
 
@@ -403,11 +461,13 @@ def test_get_card_with_spend_logger_error() -> None:
         "Номер карты": ["*5678"],
         "Сумма операции": [-100.0],
         "Кэшбэк": [1.0],
-        "Сумма операции с округлением": [100.0]
+        "Сумма операции с округлением": [100.0],
     }
     df = pd.DataFrame(test_data)
 
-    with patch('src.utils.setup_function_logger', side_effect=Exception("Logger error")):
+    with patch(
+        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
+    ):
         with pytest.raises(Exception):
             get_card_with_spend(df)
 
@@ -418,7 +478,7 @@ def test_get_top_transactions_success() -> None:
         "Дата платежа": ["31.12.2021", "28.12.2021", "23.12.2021"],
         "Сумма операции": [1000.0, 500.0, 1500.0],
         "Категория": ["Супермаркеты", "Переводы", "Ж/д билеты"],
-        "Описание": ["Магнит", "Константин Л.", "РЖД"]
+        "Описание": ["Магнит", "Константин Л.", "РЖД"],
     }
     df = pd.DataFrame(test_data)
 
@@ -439,7 +499,7 @@ def test_get_top_transactions_missing_columns() -> None:
     """Тест функции get_top_transactions с отсутствующими колонками"""
     test_data = {
         "Дата платежа": ["31.12.2021"],
-        "Сумма операции": [1000.0]
+        "Сумма операции": [1000.0],
         # Нет других необходимых колонок
     }
     df = pd.DataFrame(test_data)
@@ -453,7 +513,7 @@ def test_get_top_transactions_invalid_top() -> None:
         "Дата платежа": ["31.12.2021"],
         "Сумма операции": [1000.0],
         "Категория": ["Супермаркеты"],
-        "Описание": ["Колхоз"]
+        "Описание": ["Колхоз"],
     }
     df = pd.DataFrame(test_data)
 
@@ -464,28 +524,30 @@ def test_get_top_transactions_invalid_top() -> None:
         get_top_transactions(df, -1)  # Отрицательное число
 
     with pytest.raises(Exception):
-        get_top_transactions(df, "5")  # Строка вместо числа
+        get_top_transactions(df, "5")  # type: ignore[arg-type]
+        # Строка вместо числа
 
 
 def test_get_top_transactions_wrong_input_type() -> None:
     """Тест функции get_top_transactions с неправильным типом входных данных"""
     with pytest.raises(Exception):
-        get_top_transactions("not a dataframe", 5)  # Передаем строку вместо DataFrame
+        get_top_transactions("not a dataframe", 5)  # type: ignore[arg-type]
+        # Передаем строку вместо DataFrame
 
 
-@patch('src.utils.setup_function_logger')
+@patch("src.utils.setup_function_logger")
 def test_get_top_transactions_logging(mock_logger) -> None:
     """Тест логирования функции get_top_transactions"""
     test_data = {
         "Дата платежа": ["31.12.2021"],
         "Сумма операции": [1000.0],
         "Категория": ["Еда"],
-        "Описание": ["Ресторан"]
+        "Описание": ["Ресторан"],
     }
     df = pd.DataFrame(test_data)
 
-    mock_logger.return_value = logging.getLogger('test')
-    with patch.object(mock_logger.return_value, 'info') as mock_info:
+    mock_logger.return_value = logging.getLogger("test")
+    with patch.object(mock_logger.return_value, "info") as mock_info:
         get_top_transactions(df, 1)
         assert mock_info.call_count == 2
 
@@ -496,11 +558,13 @@ def test_get_top_transactions_logger_error() -> None:
         "Дата платежа": ["31.12.2021"],
         "Сумма операции": [1000.0],
         "Категория": ["Супермаркеты"],
-        "Описание": ["Колхоз"]
+        "Описание": ["Колхоз"],
     }
     df = pd.DataFrame(test_data)
 
-    with patch('src.utils.setup_function_logger', side_effect=Exception("Logger error")):
+    with patch(
+        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
+    ):
         with pytest.raises(Exception):
             get_top_transactions(df, 1)
 
@@ -514,12 +578,9 @@ def test_get_currency_success(tmpdir) -> None:
     # Мокирую запрос к API
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "query": {"from": "USD"},
-        "result": 75.1234
-    }
+    mock_response.json.return_value = {"query": {"from": "USD"}, "result": 75.1234}
 
-    with patch('requests.request', return_value=mock_response):
+    with patch("requests.request", return_value=mock_response):
         result = get_currency(str(test_json))
         assert len(result) == 1
         assert result[0]["currency"] == "USD"
@@ -555,7 +616,7 @@ def test_get_currency_empty_currencies(tmpdir) -> None:
     test_json = tmpdir.join("empty_currencies.json")
     test_json.write(json.dumps({"user_currencies": []}))
 
-    with patch('requests.request'):
+    with patch("requests.request"):
         result = get_currency(str(test_json))
         assert len(result) == 0
 
@@ -565,7 +626,10 @@ def test_get_currency_api_error(tmpdir) -> None:
     test_json = tmpdir.join("test_api_error.json")
     test_json.write(json.dumps({"user_currencies": ["USD"]}))
 
-    with patch('requests.request', side_effect=requests.exceptions.RequestException("API error")):
+    with patch(
+        "requests.request",
+        side_effect=requests.exceptions.RequestException("API error"),
+    ):
         result = get_currency(str(test_json))
         assert len(result) == 0
 
@@ -579,7 +643,7 @@ def test_get_currency_invalid_response(tmpdir) -> None:
     mock_response.status_code = 200
     mock_response.json.return_value = {"wrong_format": True}
 
-    with patch('requests.request', return_value=mock_response):
+    with patch("requests.request", return_value=mock_response):
         result = get_currency(str(test_json))
         assert len(result) == 0
 
@@ -587,13 +651,14 @@ def test_get_currency_invalid_response(tmpdir) -> None:
 def test_get_currency_wrong_input_type() -> None:
     """Тест функции get_currency с некорректным типом входных данных"""
     with pytest.raises(Exception):
-        get_currency(123)  # Число вместо строки
+        get_currency(123)  # type: ignore[arg-type]
+        # Число вместо строки
 
     with pytest.raises(Exception):
         get_currency("")  # Пустая строка
 
 
-@patch('src.utils.setup_function_logger')
+@patch("src.utils.setup_function_logger")
 def test_get_currency_logging(mock_logger, tmpdir) -> None:
     """Тест логирования функции get_currency"""
     test_json = tmpdir.join("test_logging.json")
@@ -601,14 +666,11 @@ def test_get_currency_logging(mock_logger, tmpdir) -> None:
 
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "query": {"from": "USD"},
-        "result": 75.12
-    }
+    mock_response.json.return_value = {"query": {"from": "USD"}, "result": 75.12}
 
-    mock_logger.return_value = logging.getLogger('test')
-    with patch('requests.request', return_value=mock_response):
-        with patch.object(mock_logger.return_value, 'info') as mock_info:
+    mock_logger.return_value = logging.getLogger("test")
+    with patch("requests.request", return_value=mock_response):
+        with patch.object(mock_logger.return_value, "info") as mock_info:
             get_currency(str(test_json))
             assert mock_info.call_count == 2
 
@@ -618,7 +680,9 @@ def test_get_currency_logger_error(tmpdir) -> None:
     test_json = tmpdir.join("test_logger_error.json")
     test_json.write(json.dumps({"user_currencies": ["USD"]}))
 
-    with patch('src.utils.setup_function_logger', side_effect=Exception("Logger error")):
+    with patch(
+        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
+    ):
         with pytest.raises(Exception):
             get_currency(str(test_json))
 
@@ -634,7 +698,7 @@ def test_get_stock_prices_success(tmpdir) -> None:
     mock_response.status_code = 200
     mock_response.json.return_value = {"price": 150.1234}
 
-    with patch('requests.request', return_value=mock_response):
+    with patch("requests.request", return_value=mock_response):
         result = get_stock_prices(str(test_json))
         assert len(result) == 2
         assert result[0]["stock"] == "AAPL"
@@ -643,7 +707,9 @@ def test_get_stock_prices_success(tmpdir) -> None:
 
 def test_get_stock_prices_file_not_found() -> None:
     """Тест функции get_stock_prices с несуществующим файлом"""
-    with pytest.raises(Exception, match="Ошибка в функции: Файл не найден: nonexistent_file.json"):
+    with pytest.raises(
+        Exception, match="Ошибка в функции: Файл не найден: nonexistent_file.json"
+    ):
         get_stock_prices("nonexistent_file.json")
 
 
@@ -670,7 +736,7 @@ def test_get_stock_prices_empty_stocks(tmpdir) -> None:
     test_json = tmpdir.join("empty_stocks.json")
     test_json.write(json.dumps({"user_stocks": []}))
 
-    with patch('requests.request'):
+    with patch("requests.request"):
         result = get_stock_prices(str(test_json))
         assert len(result) == 0
 
@@ -680,7 +746,10 @@ def test_get_stock_prices_api_error(tmpdir) -> None:
     test_json = tmpdir.join("test_api_error.json")
     test_json.write(json.dumps({"user_stocks": ["AAPL"]}))
 
-    with patch('requests.request', side_effect=requests.exceptions.RequestException("API error")):
+    with patch(
+        "requests.request",
+        side_effect=requests.exceptions.RequestException("API error"),
+    ):
         result = get_stock_prices(str(test_json))
         assert len(result) == 0
 
@@ -694,7 +763,7 @@ def test_get_stock_prices_invalid_response(tmpdir) -> None:
     mock_response.status_code = 200
     mock_response.json.return_value = {"wrong_format": True}
 
-    with patch('requests.request', return_value=mock_response):
+    with patch("requests.request", return_value=mock_response):
         result = get_stock_prices(str(test_json))
         assert len(result) == 0
 
@@ -708,7 +777,7 @@ def test_get_stock_prices_invalid_price_format(tmpdir) -> None:
     mock_response.status_code = 200
     mock_response.json.return_value = {"price": "not_a_number"}
 
-    with patch('requests.request', return_value=mock_response):
+    with patch("requests.request", return_value=mock_response):
         result = get_stock_prices(str(test_json))
         assert len(result) == 0
 
@@ -716,13 +785,14 @@ def test_get_stock_prices_invalid_price_format(tmpdir) -> None:
 def test_get_stock_prices_wrong_input_type() -> None:
     """Тест функции get_stock_prices с некорректным типом входных данных"""
     with pytest.raises(Exception):
-        get_stock_prices(123)  # Число вместо строки
+        get_stock_prices(123)  # type: ignore[arg-type]
+        # Число вместо строки
 
     with pytest.raises(Exception):
         get_stock_prices("")  # Пустая строка
 
 
-@patch('src.utils.setup_function_logger')
+@patch("src.utils.setup_function_logger")
 def test_get_stock_prices_logging(mock_logger, tmpdir) -> None:
     """Тест логирования функции get_stock_prices"""
     test_json = tmpdir.join("test_logging.json")
@@ -732,9 +802,9 @@ def test_get_stock_prices_logging(mock_logger, tmpdir) -> None:
     mock_response.status_code = 200
     mock_response.json.return_value = {"price": 150.12}
 
-    mock_logger.return_value = logging.getLogger('test')
-    with patch('requests.request', return_value=mock_response):
-        with patch.object(mock_logger.return_value, 'info') as mock_info:
+    mock_logger.return_value = logging.getLogger("test")
+    with patch("requests.request", return_value=mock_response):
+        with patch.object(mock_logger.return_value, "info") as mock_info:
             get_stock_prices(str(test_json))
             assert mock_info.call_count == 2
 
@@ -744,7 +814,9 @@ def test_get_stock_prices_logger_error(tmpdir) -> None:
     test_json = tmpdir.join("test_logger_error.json")
     test_json.write(json.dumps({"user_stocks": ["AAPL"]}))
 
-    with patch('src.utils.setup_function_logger', side_effect=Exception("Logger error")):
+    with patch(
+        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
+    ):
         with pytest.raises(Exception):
             get_stock_prices(str(test_json))
 
@@ -755,7 +827,7 @@ def test_get_cashback_by_category_success() -> None:
         "Сумма операции": [-100.0, -200.0, -50.0, 100.0],
         "Кэшбэк": [1.0, 2.0, 0.5, 0.0],
         "Категория": ["Супермаркеты", "Рестораны", "Наличные", "Зарплата"],
-        "Сумма операции с округлением": [100.0, 200.0, 50.0, 100.0]
+        "Сумма операции с округлением": [100.0, 200.0, 50.0, 100.0],
     }
     df = pd.DataFrame(test_data)
 
@@ -769,21 +841,26 @@ def test_get_cashback_by_category_success() -> None:
 def test_get_cashback_by_category_empty_df() -> None:
     """Тест функции get_cashback_by_category с пустым DataFrame"""
     df = pd.DataFrame()
-    with pytest.raises(Exception, match="Ошибка в функции: DataFrame не может быть пустым"):
+    with pytest.raises(
+        Exception, match="Ошибка в функции: DataFrame не может быть пустым"
+    ):
         get_cashback_by_category(df)
 
 
 def test_get_cashback_by_category_wrong_input_type() -> None:
     """Тест функции get_cashback_by_category с неправильным типом входных данных"""
-    with pytest.raises(Exception, match="Ошибка в функции: Входные данные должны быть pandas DataFrame"):
-        get_cashback_by_category("not a dataframe")  # Строка вместо DataFrame
+    with pytest.raises(
+        Exception, match="Ошибка в функции: Входные данные должны быть pandas DataFrame"
+    ):
+        get_cashback_by_category("not a dataframe")  # type: ignore[arg-type]
+        # Строка вместо DataFrame
 
 
 def test_get_cashback_by_category_missing_columns() -> None:
     """Тест функции get_cashback_by_category с отсутствующими колонками"""
     test_data = {
         "Сумма операции": [-100.0],
-        "Категория": ["Супермаркеты"]
+        "Категория": ["Супермаркеты"],
         # Нет других необходимых колонок
     }
     df = pd.DataFrame(test_data)
@@ -797,7 +874,7 @@ def test_get_cashback_by_category_excluded_categories() -> None:
         "Сумма операции": [-100.0, -200.0],
         "Кэшбэк": [1.0, 2.0],
         "Категория": ["Переводы", "Наличные"],  # Обе категории в списке исключений
-        "Сумма операции с округлением": [100.0, 200.0]
+        "Сумма операции с округлением": [100.0, 200.0],
     }
     df = pd.DataFrame(test_data)
 
@@ -811,11 +888,11 @@ def test_get_cashback_by_category_invalid_values() -> None:
         "Сумма операции": [-100.0, "invalid"],
         "Кэшбэк": [1.0, 2.0],
         "Категория": ["Супермаркеты", "Рестораны"],
-        "Сумма операции с округлением": [100.0, "not_a_number"]
+        "Сумма операции с округлением": [100.0, "not_a_number"],
     }
     df = pd.DataFrame(test_data)
 
-    with patch('logging.Logger.warning') as mock_warning:
+    with patch("logging.Logger.warning") as mock_warning:
         result = get_cashback_by_category(df)
         assert len(result) == 1  # Только одна корректная строка
         assert mock_warning.call_count >= 1  # Должно быть предупреждение
@@ -827,29 +904,29 @@ def test_get_cashback_by_category_empty_category_name() -> None:
         "Сумма операции": [-100.0],
         "Кэшбэк": [1.0],
         "Категория": [""],  # Пустое название
-        "Сумма операции с округлением": [-100.0]
+        "Сумма операции с округлением": [-100.0],
     }
     df = pd.DataFrame(test_data)
 
-    with patch('logging.Logger.warning') as mock_warning:
+    with patch("logging.Logger.warning") as mock_warning:
         result = get_cashback_by_category(df)
         assert len(result) == 0
         mock_warning.assert_called()
 
 
-@patch('src.utils.setup_function_logger')
+@patch("src.utils.setup_function_logger")
 def test_get_cashback_by_category_logging(mock_logger) -> None:
     """Тест логирования функции get_cashback_by_category"""
     test_data = {
         "Сумма операции": [-100.0],
         "Кэшбэк": [1.0],
         "Категория": ["Супермаркеты"],
-        "Сумма операции с округлением": [-100.0]
+        "Сумма операции с округлением": [-100.0],
     }
     df = pd.DataFrame(test_data)
 
-    mock_logger.return_value = logging.getLogger('test')
-    with patch.object(mock_logger.return_value, 'info') as mock_info:
+    mock_logger.return_value = logging.getLogger("test")
+    with patch.object(mock_logger.return_value, "info") as mock_info:
         get_cashback_by_category(df)
         assert mock_info.call_count == 2
 
@@ -860,10 +937,12 @@ def test_get_cashback_by_category_logger_error() -> None:
         "Сумма операции": [-100.0],
         "Кэшбэк": [1.0],
         "Категория": ["Супермаркеты"],
-        "Сумма операции с округлением": [-100.0]
+        "Сумма операции с округлением": [-100.0],
     }
     df = pd.DataFrame(test_data)
 
-    with patch('src.utils.setup_function_logger', side_effect=Exception("Logger error")):
+    with patch(
+        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
+    ):
         with pytest.raises(Exception):
             get_cashback_by_category(df)

@@ -1,13 +1,10 @@
-import logging
-from datetime import datetime
 import json
-from typing import Optional
-import pytest
+from datetime import datetime
 
+from src.reports import spending_by_category
+from src.services import analyze_cashback_categories
 from src.utils import get_time_for_greeting
 from src.views import main_info
-from src.services import analyze_cashback_categories
-from src.reports import spending_by_category
 
 DATE_NOW = "2021-12-23 23:59:59"
 
@@ -26,7 +23,9 @@ def is_valid_date(year: str, month: str, day: str) -> bool:
 
 def get_user_date_choice(default_date: str) -> str:
     """Функция получает от пользователя выбор даты для отчета"""
-    print("\nХотите получить отчёт по категории за последние 3 месяца с текущей даты, или ввести другую дату?")
+    print(
+        "\nХотите получить отчёт по категории за последние 3 месяца с текущей даты, или ввести другую дату?"
+    )
     print("1 - С текущей даты")
     print("2 - Ввести дату")
 
@@ -34,7 +33,9 @@ def get_user_date_choice(default_date: str) -> str:
         choice = input("Ваш выбор (1-2): ")
 
         if choice == "1":
-            return datetime.strptime(default_date, "%Y-%m-%d %H:%M:%S").strftime("%Y.%m.%d %H:%M:%S")
+            return datetime.strptime(default_date, "%Y-%m-%d %H:%M:%S").strftime(
+                "%Y.%m.%d %H:%M:%S"
+            )
 
         if choice == "2":
             while True:
@@ -44,8 +45,12 @@ def get_user_date_choice(default_date: str) -> str:
 
                 if is_valid_date(year, month, day):
                     return datetime(
-                        year=int(year), month=int(month), day=int(day),
-                        hour=23, minute=59, second=59
+                        year=int(year),
+                        month=int(month),
+                        day=int(day),
+                        hour=23,
+                        minute=59,
+                        second=59,
                     ).strftime("%Y.%m.%d %H:%M:%S")
 
                 print("Ошибка: такой даты не существует!")
@@ -95,7 +100,9 @@ def handle_cashback_report() -> None:
 
         print("\nАнализируем категории кэшбэка...")
         try:
-            result = analyze_cashback_categories("../data/operations.xlsx", year_int, month_int)
+            result = analyze_cashback_categories(
+                "../data/operations.xlsx", year_int, month_int
+            )
             print(f"\nНаиболее выгодные категории кэшбэка за {month_int}/{year_int}:")
             print(result.to_string())
             break
@@ -109,20 +116,24 @@ def print_main_info(main_data: dict) -> None:
     print(f"{get_time_for_greeting()}")
 
     print("\nСписок трат за текущий месяц:")
-    for card in main_data['cards']:
-        print(f"Карта ****{card['last_digits']}: потрачено {card['total_spent']}, кэшбэк {card['cashback']}")
+    for card in main_data["cards"]:
+        print(
+            f"Карта ****{card['last_digits']}: потрачено {card['total_spent']}, кэшбэк {card['cashback']}"
+        )
 
     print("\nТоп-5 транзакций за текущий месяц:")
-    for i, transaction in enumerate(main_data['top_transactions'], 1):
+    for i, transaction in enumerate(main_data["top_transactions"], 1):
         print(
-            f"{i}. {transaction['date']} - {transaction['amount']} ({transaction['category']}/{transaction['description']})")
+            f"{i}. {transaction['date']} - {transaction['amount']} "
+            f"({transaction['category']}/{transaction['description']})"
+        )
 
     print("\nКурсы валют:")
-    for rate in main_data['currency_rates']:
+    for rate in main_data["currency_rates"]:
         print(f"{rate['currency']}: {rate['rate']} RUB")
 
     print("\nЦены акций:")
-    for stock in main_data['stock_prices']:
+    for stock in main_data["stock_prices"]:
         print(f"{stock['stock']}: {stock['price']} USD")
 
 
