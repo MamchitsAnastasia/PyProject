@@ -1,4 +1,5 @@
 import json
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,17 +9,17 @@ from src.views import main_info
 
 # Фикстуры для тестов
 @pytest.fixture
-def valid_date():
+def valid_date() -> str:
     return "2023-10-15 12:00:00"
 
 
 @pytest.fixture
-def invalid_date():
+def invalid_date() -> str:
     return "2023-13-15 12:00:00"
 
 
 @pytest.fixture
-def mock_data():
+def mock_data() -> dict[str, Any]:
     return {
         "greeting": "Добрый день",
         "cards": [{"last_digits": "1234", "total_spent": -1000, "cashback": 10}],
@@ -35,7 +36,7 @@ def mock_data():
     }
 
 
-def test_main_info_success(valid_date, mock_data):
+def test_main_info_success(valid_date: str, mock_data: MagicMock) -> None:
     """Тест успешного выполнения функции main_info с корректными входными данными"""
 
     with (
@@ -46,9 +47,7 @@ def test_main_info_success(valid_date, mock_data):
         ),
         patch("src.views.get_path_and_period", return_value=MagicMock()),
         patch("src.views.get_card_with_spend", return_value=mock_data["cards"]),
-        patch(
-            "src.views.get_top_transactions", return_value=mock_data["top_transactions"]
-        ),
+        patch("src.views.get_top_transactions", return_value=mock_data["top_transactions"]),
         patch("src.views.get_currency", return_value=mock_data["currency_rates"]),
         patch("src.views.get_stock_prices", return_value=mock_data["stock_prices"]),
     ):
@@ -58,14 +57,12 @@ def test_main_info_success(valid_date, mock_data):
         assert isinstance(result, str)
         assert result_data["greeting"] == mock_data["greeting"]
         assert len(result_data["cards"]) == len(mock_data["cards"])
-        assert len(result_data["top_transactions"]) == len(
-            mock_data["top_transactions"]
-        )
+        assert len(result_data["top_transactions"]) == len(mock_data["top_transactions"])
         assert len(result_data["currency_rates"]) == len(mock_data["currency_rates"])
         assert len(result_data["stock_prices"]) == len(mock_data["stock_prices"])
 
 
-def test_main_info_invalid_date_format():
+def test_main_info_invalid_date_format() -> None:
     """Тест функции main_info на обработку неверного формата даты"""
     invalid_dates = [
         "2023-13-15 12:00:00",  # Несуществующий месяц
@@ -82,7 +79,7 @@ def test_main_info_invalid_date_format():
             main_info(invalid_date)
 
 
-def test_main_info_file_not_found(valid_date):
+def test_main_info_file_not_found(valid_date: str) -> None:
     """Тест функции main_info на обработку отсутствия файла"""
     with (
         patch("src.views.get_time_for_greeting", return_value="Добрый день"),
@@ -99,7 +96,7 @@ def test_main_info_file_not_found(valid_date):
             main_info(valid_date)
 
 
-def test_main_info_empty_data(valid_date):
+def test_main_info_empty_data(valid_date: str) -> None:
     """Тест обработки пустых данных"""
     with (
         patch("src.views.get_time_for_greeting", return_value="Добрый день"),
@@ -123,7 +120,7 @@ def test_main_info_empty_data(valid_date):
         assert result_data["stock_prices"] == []
 
 
-def test_main_info_partial_data(valid_date, mock_data):
+def test_main_info_partial_data(valid_date: str, mock_data: MagicMock) -> None:
     """Тест обработки частичных данных (когда некоторые данные отсутствуют)"""
     partial_mock_data = {
         "greeting": mock_data["greeting"],
@@ -148,12 +145,8 @@ def test_main_info_partial_data(valid_date, mock_data):
             "src.views.get_top_transactions",
             return_value=partial_mock_data["top_transactions"],
         ),
-        patch(
-            "src.views.get_currency", return_value=partial_mock_data["currency_rates"]
-        ),
-        patch(
-            "src.views.get_stock_prices", return_value=partial_mock_data["stock_prices"]
-        ),
+        patch("src.views.get_currency", return_value=partial_mock_data["currency_rates"]),
+        patch("src.views.get_stock_prices", return_value=partial_mock_data["stock_prices"]),
     ):
         result = main_info(valid_date)
         result_data = json.loads(result)

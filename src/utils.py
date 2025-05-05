@@ -19,7 +19,7 @@ STOCK_URL = "https://api.twelvedata.com/price"
 CATEGORIES_WITHOUT_CASHBACK = ["Переводы", "Наличные", "Услуги банка", "Госуслуги"]
 
 
-def setup_function_logger(func_name):
+def setup_function_logger(func_name: str) -> logging.Logger:
     """Функция создает и настраивает логгер для конкретной функции"""
     os.makedirs("logs", exist_ok=True)
     logger = logging.getLogger(func_name)
@@ -30,15 +30,13 @@ def setup_function_logger(func_name):
     handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
     handler.setLevel(logging.DEBUG)
     # Формат записи логов
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     return logger
 
 
-def get_time_for_greeting():
+def get_time_for_greeting() -> str:
     """Функция возвращает
     «Доброе утро» / «Добрый день» / «Добрый вечер» / «Доброй ночи»
     в зависимости от текущего времени."""
@@ -77,9 +75,7 @@ def get_data_time(date_time: str, date_format: str = "%Y-%m-%d %H:%M:%S") -> lis
     logger = None
     try:
         logger = setup_function_logger("get_data_time")
-        logger.info(
-            f"Начало выполнения функции с параметрами: date_time={date_time}, date_format={date_format}"
-        )
+        logger.info(f"Начало выполнения функции с параметрами: date_time={date_time}, date_format={date_format}")
 
         # Валидация входных параметров
         if not isinstance(date_time, str):
@@ -117,18 +113,14 @@ def get_path_and_period(path_to_file: str, period_date: list) -> DataFrame:
     logger = None
     try:
         logger = setup_function_logger("get_path_and_period")
-        logger.info(
-            f"Начало выполнения функции с параметрами: path_to_file={path_to_file}, period_date={period_date}"
-        )
+        logger.info(f"Начало выполнения функции с параметрами: path_to_file={path_to_file}, period_date={period_date}")
         # Валидация входных параметров
         if not isinstance(path_to_file, str):
             logger.error("Параметр path_to_file должен быть строкой")
             raise TypeError("Параметр path_to_file должен быть строкой")
         if not isinstance(period_date, list) or len(period_date) != 2:
             logger.error("Параметр period_date должен быть списком с двумя элементами")
-            raise ValueError(
-                "Параметр period_date должен быть списком с двумя элементами"
-            )
+            raise ValueError("Параметр period_date должен быть списком с двумя элементами")
         if not all(isinstance(date, str) for date in period_date):
             logger.error("Даты в period_date должны быть строками")
             raise TypeError("Даты в period_date должны быть строками")
@@ -152,14 +144,10 @@ def get_path_and_period(path_to_file: str, period_date: list) -> DataFrame:
                 logger.error("Начальная дата периода не может быть больше конечной")
                 raise ValueError("Начальная дата периода не может быть больше конечной")
 
-            filtered_df = df[
-                (df["Дата операции"] >= start_date) & (df["Дата операции"] <= end_date)
-            ]
+            filtered_df = df[(df["Дата операции"] >= start_date) & (df["Дата операции"] <= end_date)]
             sorted_df = filtered_df.sort_values(by="Дата операции", ascending=True)
 
-            logger.info(
-                f"Функция отработала успешно. Возвращено строк: {len(sorted_df)}"
-            )
+            logger.info(f"Функция отработала успешно. Возвращено строк: {len(sorted_df)}")
             return sorted_df
 
         except pd.errors.EmptyDataError as e:
@@ -205,9 +193,7 @@ def get_card_with_spend(sorted_df: DataFrame) -> list[dict]:
             "Кэшбэк",
             "Сумма операции с округлением",
         ]
-        missing_columns = [
-            col for col in required_columns if col not in sorted_df.columns
-        ]
+        missing_columns = [col for col in required_columns if col not in sorted_df.columns]
         if missing_columns:
             logger.error(f"Отсутствуют необходимые колонки: {missing_columns}")
             raise KeyError(f"Отсутствуют необходимые колонки: {missing_columns}")
@@ -242,16 +228,12 @@ def get_card_with_spend(sorted_df: DataFrame) -> list[dict]:
             if not card_spend_transactions:
                 logger.warning("Не найдено транзакций с расходами")
 
-            logger.info(
-                f"Функция отработала успешно. Транзакций найдено: {len(card_spend_transactions)}"
-            )
+            logger.info(f"Функция отработала успешно. Транзакций найдено: {len(card_spend_transactions)}")
             return card_spend_transactions
 
         except Exception as processing_error:
             logger.error(f"Ошибка обработки данных: {str(processing_error)}")
-            raise Exception(
-                f"Ошибка обработки данных: {str(processing_error)}"
-            ) from processing_error
+            raise Exception(f"Ошибка обработки данных: {str(processing_error)}") from processing_error
 
     except Exception as e:
         if logger:
@@ -281,9 +263,7 @@ def get_top_transactions(sorted_df: DataFrame, get_top: int) -> list[dict]:
 
         # Проверка наличия необходимых колонок
         required_columns = ["Дата платежа", "Сумма операции", "Категория", "Описание"]
-        missing_columns = [
-            col for col in required_columns if col not in sorted_df.columns
-        ]
+        missing_columns = [col for col in required_columns if col not in sorted_df.columns]
         if missing_columns:
             logger.error(f"Отсутствуют необходимые колонки: {missing_columns}")
             raise KeyError(f"Отсутствуют необходимые колонки: {missing_columns}")
@@ -293,9 +273,7 @@ def get_top_transactions(sorted_df: DataFrame, get_top: int) -> list[dict]:
                 by="Сумма операции", ascending=False
             )  # Сортирую таблицу по сумме операций по убыванию
             top_transactions = sorted_pay_df.head(get_top)
-            top_transactions_sorted = top_transactions[
-                ["Дата платежа", "Сумма операции", "Категория", "Описание"]
-            ]
+            top_transactions_sorted = top_transactions[["Дата платежа", "Сумма операции", "Категория", "Описание"]]
 
             for index, row in top_transactions_sorted.iterrows():
                 try:
@@ -310,9 +288,7 @@ def get_top_transactions(sorted_df: DataFrame, get_top: int) -> list[dict]:
                     logger.warning(f"Ошибка обработки строки {index}: {str(row_error)}")
                     continue
 
-            logger.info(
-                f"Функция отработала успешно. Топ транзакций возвращено: {len(top_pay_transactions)}"
-            )
+            logger.info(f"Функция отработала успешно. Топ транзакций возвращено: {len(top_pay_transactions)}")
             return top_pay_transactions
 
         except Exception as e:
@@ -329,9 +305,7 @@ def get_currency(path_to_json: str) -> list[dict]:
     logger = None
     try:
         logger = setup_function_logger("get_currency")
-        logger.info(
-            f"Начало выполнения функции с параметром: path_to_json={path_to_json}"
-        )
+        logger.info(f"Начало выполнения функции с параметром: path_to_json={path_to_json}")
         # Валидация входных параметров
         if not isinstance(path_to_json, str):
             logger.error("path_to_json должен быть строкой")
@@ -347,12 +321,8 @@ def get_currency(path_to_json: str) -> list[dict]:
             with open(path_to_json, "r", encoding="utf-8") as file:
                 data = json.load(file)
                 if "user_currencies" not in data:
-                    logger.error(
-                        "Отсутствует обязательное поле 'user_currencies' в JSON"
-                    )
-                    raise KeyError(
-                        "Отсутствует обязательное поле 'user_currencies' в JSON"
-                    )
+                    logger.error("Отсутствует обязательное поле 'user_currencies' в JSON")
+                    raise KeyError("Отсутствует обязательное поле 'user_currencies' в JSON")
 
                 user_currencies = data["user_currencies"]
 
@@ -366,12 +336,8 @@ def get_currency(path_to_json: str) -> list[dict]:
                 for currency in user_currencies:
                     try:
                         if not isinstance(currency, str):
-                            logger.error(
-                                f"Код валюты должен быть строкой, получено: {type(currency)}"
-                            )
-                            raise ValueError(
-                                f"Код валюты должен быть строкой, получено: {type(currency)}"
-                            )
+                            logger.error(f"Код валюты должен быть строкой, получено: {type(currency)}")
+                            raise ValueError(f"Код валюты должен быть строкой, получено: {type(currency)}")
                         params: dict[str, str | float] = {
                             "amount": 1,
                             "from": f"{currency}",
@@ -405,24 +371,16 @@ def get_currency(path_to_json: str) -> list[dict]:
                         )
 
                     except requests.RequestException as req_err:
-                        logger.error(
-                            f"Ошибка запроса для валюты {currency}: {str(req_err)}"
-                        )
+                        logger.error(f"Ошибка запроса для валюты {currency}: {str(req_err)}")
                         continue
                     except ValueError as val_err:
-                        logger.error(
-                            f"Ошибка обработки ответа для валюты {currency}: {str(val_err)}"
-                        )
+                        logger.error(f"Ошибка обработки ответа для валюты {currency}: {str(val_err)}")
                         continue
                     except Exception as e:
-                        logger.error(
-                            f"Неожиданная ошибка для валюты {currency}: {str(e)}"
-                        )
+                        logger.error(f"Неожиданная ошибка для валюты {currency}: {str(e)}")
                         continue
 
-            logger.info(
-                f"Функция отработала успешно. Возвращены курсы: {currency_rates}"
-            )
+            logger.info(f"Функция отработала успешно. Возвращены курсы: {currency_rates}")
             return currency_rates
 
         except json.JSONDecodeError as json_err:
@@ -435,9 +393,7 @@ def get_currency(path_to_json: str) -> list[dict]:
 
         except KeyError as key_err:
             logger.error(f"Отсутствует обязательное поле в JSON: {str(key_err)}")
-            raise KeyError(
-                f"Отсутствует обязательное поле в JSON: {str(key_err)}"
-            ) from key_err
+            raise KeyError(f"Отсутствует обязательное поле в JSON: {str(key_err)}") from key_err
 
         except Exception as e:
             logger.error(f"Ошибка обработки данных: {str(e)}")
@@ -454,9 +410,7 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
     logger = None
     try:
         logger = setup_function_logger("get_stock_prices")
-        logger.info(
-            f"Начало выполнения функции с параметром: path_to_json={path_to_json}"
-        )
+        logger.info(f"Начало выполнения функции с параметром: path_to_json={path_to_json}")
         # Валидация входных параметров
         if not isinstance(path_to_json, str):
             logger.error("path_to_json должен быть строкой")
@@ -489,69 +443,45 @@ def get_stock_prices(path_to_json: str) -> list[dict]:
                 for stock in user_stocks:
                     try:
                         if not isinstance(stock, str):
-                            logger.error(
-                                f"Тикер акции должен быть строкой, получено: {type(stock)}"
-                            )
-                            raise ValueError(
-                                f"Тикер акции должен быть строкой, получено: {type(stock)}"
-                            )
+                            logger.error(f"Тикер акции должен быть строкой, получено: {type(stock)}")
+                            raise ValueError(f"Тикер акции должен быть строкой, получено: {type(stock)}")
 
                         params: dict[str, str] = {
                             "symbol": f"{stock}",
                             "apikey": f"{STOCK_API_KEY}",
                         }
-                        response = requests.request(
-                            "GET", STOCK_URL, params=params, timeout=10
-                        )
+                        response = requests.request("GET", STOCK_URL, params=params, timeout=10)
                         response.raise_for_status()
                         result = response.json()
 
                         if "price" not in result:
-                            logger.error(
-                                "Некорректный формат ответа от API - отсутствует поле 'price'"
-                            )
-                            raise ValueError(
-                                "Некорректный формат ответа от API - отсутствует поле 'price'"
-                            )
+                            logger.error("Некорректный формат ответа от API - отсутствует поле 'price'")
+                            raise ValueError("Некорректный формат ответа от API - отсутствует поле 'price'")
                         try:
                             stock_prise = round(float(result["price"]), 2)
                         except (ValueError, TypeError):
-                            logger.error(
-                                f"Некорректное значение цены: {result['price']}"
-                            )
-                            raise ValueError(
-                                f"Некорректное значение цены: {result['price']}"
-                            )
+                            logger.error(f"Некорректное значение цены: {result['price']}")
+                            raise ValueError(f"Некорректное значение цены: {result['price']}")
 
-                        stock_rates.append(
-                            {"stock": f"{stock}", "price": f"{stock_prise}"}
-                        )
+                        stock_rates.append({"stock": f"{stock}", "price": f"{stock_prise}"})
 
                     except requests.RequestException as req_err:
-                        logger.error(
-                            f"Ошибка запроса для акции {stock}: {str(req_err)}"
-                        )
+                        logger.error(f"Ошибка запроса для акции {stock}: {str(req_err)}")
                         continue
                     except ValueError as val_err:
-                        logger.error(
-                            f"Ошибка обработки ответа для акции {stock}: {str(val_err)}"
-                        )
+                        logger.error(f"Ошибка обработки ответа для акции {stock}: {str(val_err)}")
                         continue
                     except Exception as e:
                         logger.error(f"Неожиданная ошибка для акции {stock}: {str(e)}")
                         continue
 
-            logger.info(
-                f"Функция отработала успешно. Возвращена стоимость акций: {stock_rates}"
-            )
+            logger.info(f"Функция отработала успешно. Возвращена стоимость акций: {stock_rates}")
             return stock_rates
 
         except json.JSONDecodeError as json_err:
             error_msg = f"Ошибка декодирования JSON: {str(json_err)}"
             logger.error(error_msg)
-            raise json.JSONDecodeError(
-                error_msg, json_err.doc, json_err.pos
-            ) from json_err
+            raise json.JSONDecodeError(error_msg, json_err.doc, json_err.pos) from json_err
         except KeyError as key_err:
             error_msg = f"Отсутствует обязательное поле в JSON: {str(key_err)}"
             logger.error(error_msg)
@@ -588,9 +518,7 @@ def get_cashback_by_category(categories_for_month: DataFrame) -> dict[str, float
             "Категория",
             "Сумма операции с округлением",
         ]
-        missing_columns = [
-            col for col in required_columns if col not in categories_for_month.columns
-        ]
+        missing_columns = [col for col in required_columns if col not in categories_for_month.columns]
         if missing_columns:
             logger.error(f"Отсутствуют необходимые колонки: {missing_columns}")
             raise KeyError(f"Отсутствуют необходимые колонки: {missing_columns}")
@@ -611,37 +539,27 @@ def get_cashback_by_category(categories_for_month: DataFrame) -> dict[str, float
                     if row["Сумма операции"] < 0:
                         category = str(row["Категория"])
                         if not category.strip():
-                            logger.warning(
-                                f"Пустое название категории в строке {index}"
-                            )
+                            logger.warning(f"Пустое название категории в строке {index}")
                             continue
                         try:
                             total_spent = row["Сумма операции с округлением"]
                             cashback = total_spent // 100
                         except (TypeError, ValueError) as e:
-                            logger.warning(
-                                f"Ошибка обработки суммы в строке {index}: {str(e)}"
-                            )
+                            logger.warning(f"Ошибка обработки суммы в строке {index}: {str(e)}")
                             continue
 
                         if category not in CATEGORIES_WITHOUT_CASHBACK and cashback > 0:
-                            cashback_by_category[category] = (
-                                cashback_by_category.get(category, 0) + cashback
-                            )
+                            cashback_by_category[category] = cashback_by_category.get(category, 0) + cashback
                 except Exception as row_error:
                     logger.warning(f"Ошибка обработки строки {index}: {str(row_error)}")
                     continue
 
-            logger.info(
-                f"Функция отработала успешно. Найдено категорий для кэшбэка: {len(cashback_by_category)}"
-            )
+            logger.info(f"Функция отработала успешно. Найдено категорий для кэшбэка: {len(cashback_by_category)}")
             return cashback_by_category
 
         except Exception as processing_error:
             logger.error(f"Ошибка обработки данных: {str(processing_error)}")
-            raise Exception(
-                f"Ошибка обработки данных: {str(processing_error)}"
-            ) from processing_error
+            raise Exception(f"Ошибка обработки данных: {str(processing_error)}") from processing_error
 
     except Exception as e:
         if logger:

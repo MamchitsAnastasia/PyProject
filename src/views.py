@@ -1,10 +1,16 @@
 import json
 from datetime import datetime
 
-from src.utils import (get_card_with_spend, get_currency, get_data_time,
-                       get_path_and_period, get_stock_prices,
-                       get_time_for_greeting, get_top_transactions,
-                       setup_function_logger)
+from src.utils import (
+    get_card_with_spend,
+    get_currency,
+    get_data_time,
+    get_path_and_period,
+    get_stock_prices,
+    get_time_for_greeting,
+    get_top_transactions,
+    setup_function_logger,
+)
 
 
 def main_info(date_time: str) -> str:
@@ -26,13 +32,9 @@ def main_info(date_time: str) -> str:
 
         greeting = get_time_for_greeting()  # Приветствие
         cards = get_card_with_spend(sorted_df)  # Операции по дате
-        top_transactions = get_top_transactions(
-            sorted_df, 5
-        )  # Топ-5 транзакций по сумме платежа
+        top_transactions = get_top_transactions(sorted_df, 5)  # Топ-5 транзакций по сумме платежа
         currency_rates = get_currency("../data/user_settings.json")  # Курс валют
-        stock_prices = get_stock_prices(
-            "../data/user_settings.json"
-        )  # Стоимость акций из S&P500
+        stock_prices = get_stock_prices("../data/user_settings.json")  # Стоимость акций из S&P500
 
         data = {
             "greeting": greeting,

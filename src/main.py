@@ -1,6 +1,8 @@
 import json
 from datetime import datetime
 
+import pandas as pd
+
 from src.reports import spending_by_category
 from src.services import analyze_cashback_categories
 from src.utils import get_time_for_greeting
@@ -23,9 +25,7 @@ def is_valid_date(year: str, month: str, day: str) -> bool:
 
 def get_user_date_choice(default_date: str) -> str:
     """Функция получает от пользователя выбор даты для отчета"""
-    print(
-        "\nХотите получить отчёт по категории за последние 3 месяца с текущей даты, или ввести другую дату?"
-    )
+    print("\nХотите получить отчёт по категории за последние 3 месяца с текущей даты, или ввести другую дату?")
     print("1 - С текущей даты")
     print("2 - Ввести дату")
 
@@ -33,9 +33,7 @@ def get_user_date_choice(default_date: str) -> str:
         choice = input("Ваш выбор (1-2): ")
 
         if choice == "1":
-            return datetime.strptime(default_date, "%Y-%m-%d %H:%M:%S").strftime(
-                "%Y.%m.%d %H:%M:%S"
-            )
+            return datetime.strptime(default_date, "%Y-%m-%d %H:%M:%S").strftime("%Y.%m.%d %H:%M:%S")
 
         if choice == "2":
             while True:
@@ -69,7 +67,19 @@ def handle_category_report(default_date: str) -> None:
         date = get_user_date_choice(default_date)
 
         try:
-            result = spending_by_category("../data/operations.xlsx", category, date)
+            transactions_df = pd.read_excel("../data/operations.xlsx", sheet_name="Отчет по операциям")
+
+            if "Дата операции" not in transactions_df.columns:
+                print("Ошибка: в файле отсутствует столбец 'Дата операции'")
+                break
+
+            try:
+                transactions_df["Дата операции"] = pd.to_datetime(transactions_df["Дата операции"])
+            except Exception:
+                print("Ошибка: неверный формат данных в столбце 'Дата операции'")
+                break
+
+            result = spending_by_category(transactions_df, category, date)
             if result.empty:
                 print("За данный период операций по этой категории не производилось")
             else:
@@ -100,9 +110,8 @@ def handle_cashback_report() -> None:
 
         print("\nАнализируем категории кэшбэка...")
         try:
-            result = analyze_cashback_categories(
-                "../data/operations.xlsx", year_int, month_int
-            )
+            transactions = pd.read_excel("../data/operations.xlsx", sheet_name="Отчет по операциям").to_dict("records")
+            result = analyze_cashback_categories(transactions, year_int, month_int)
             print(f"\nНаиболее выгодные категории кэшбэка за {month_int}/{year_int}:")
             print(result.to_string())
             break
@@ -117,9 +126,7 @@ def print_main_info(main_data: dict) -> None:
 
     print("\nСписок трат за текущий месяц:")
     for card in main_data["cards"]:
-        print(
-            f"Карта ****{card['last_digits']}: потрачено {card['total_spent']}, кэшбэк {card['cashback']}"
-        )
+        print(f"Карта ****{card['last_digits']}: потрачено {card['total_spent']}, кэшбэк {card['cashback']}")
 
     print("\nТоп-5 транзакций за текущий месяц:")
     for i, transaction in enumerate(main_data["top_transactions"], 1):

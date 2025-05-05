@@ -1,19 +1,28 @@
 import json
 import logging
 import os
+from logging import Handler
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 import requests
 
-from src.utils import (get_card_with_spend, get_cashback_by_category,
-                       get_currency, get_data_time, get_path_and_period,
-                       get_stock_prices, get_time_for_greeting,
-                       get_top_transactions, setup_function_logger)
+from src.utils import (
+    get_card_with_spend,
+    get_cashback_by_category,
+    get_currency,
+    get_data_time,
+    get_path_and_period,
+    get_stock_prices,
+    get_time_for_greeting,
+    get_top_transactions,
+    setup_function_logger,
+)
 
 
-def test_setup_function_logger_success(tmpdir) -> None:
+def test_setup_function_logger_success(tmpdir: Any) -> None:
     """Тест функции setup_function_logger для успешного создания логгера"""
     with patch("os.makedirs"), patch("logging.FileHandler"):
         logger = setup_function_logger("test_function")
@@ -22,7 +31,7 @@ def test_setup_function_logger_success(tmpdir) -> None:
         assert logger.level == logging.DEBUG
 
 
-def test_setup_function_logger_directory_creation(tmpdir) -> None:
+def test_setup_function_logger_directory_creation(tmpdir: Any) -> None:
     """Тест функции setup_function_logger для создания директории для логов"""
     test_dir = tmpdir.mkdir("test_logs")
     with patch("os.path.join", return_value=str(test_dir)):
@@ -31,20 +40,34 @@ def test_setup_function_logger_directory_creation(tmpdir) -> None:
             assert os.path.exists(str(test_dir))
 
 
-def test_setup_function_logger_mocked():
+def test_setup_function_logger_mocked() -> None:
     """Тест функции setup_function_logger для создания файла лога (без проверки файла)"""
-    with patch("logging.getLogger") as mock_get_logger:
-        mock_logger = MagicMock()
-        mock_handler = MagicMock()
-        mock_logger.handlers = [mock_handler]
-        # Настраиваю мок-обработчик
-        mock_handler.level = logging.DEBUG
+    with (
+        patch("logging.getLogger") as mock_get_logger,
+        patch("logging.FileHandler") as mock_file_handler,
+        patch("logging.Formatter") as mock_formatter,
+    ):
+        # Настраиваю мок-логгер
+        mock_logger = MagicMock(spec=logging.Logger)
         mock_get_logger.return_value = mock_logger
+
+        # Настраиваю мок-обработчик
+        mock_handler_instance = MagicMock(spec=Handler)
+        mock_file_handler.return_value = mock_handler_instance
+
+        # Настраиваю мок-форматтер
+        mock_formatter_instance = MagicMock()
+        mock_formatter.return_value = mock_formatter_instance
+
         # Вызываю тестируемую функцию
-        logger = setup_function_logger("test_function")
-        # Проверяю вызовы
-        logger.addHandler.assert_called_once()
-        logger.setLevel.assert_called_once_with(logging.DEBUG)
+        setup_function_logger("test_function")
+
+        # Проверяю вызовы ПОСЛЕ выполнения функции
+        mock_file_handler.assert_called_once()
+        mock_formatter.assert_called_once_with("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        mock_handler_instance.setFormatter.assert_called_once_with(mock_formatter_instance)
+        mock_logger.addHandler.assert_called_once_with(mock_handler_instance)
+        mock_logger.setLevel.assert_called_once_with(logging.DEBUG)
 
 
 def test_setup_function_logger_existing_logger() -> None:
@@ -103,12 +126,8 @@ def test_get_time_for_greeting_edge_cases() -> None:
 
 def test_get_time_for_greeting_logger_error() -> None:
     """Тест функции get_time_for_greeting при ошибке инициализации логгера"""
-    with patch(
-        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
-    ):
-        with pytest.raises(
-            Exception, match="Ошибка инициализации логгера: Logger error"
-        ):
+    with patch("src.utils.setup_function_logger", side_effect=Exception("Logger error")):
+        with pytest.raises(Exception, match="Ошибка инициализации логгера: Logger error"):
             get_time_for_greeting()
 
 
@@ -131,7 +150,7 @@ def test_get_time_for_greeting_time_error() -> None:
                 get_time_for_greeting()
 
 
-def test_get_time_for_greeting_logging(tmpdir) -> None:
+def test_get_time_for_greeting_logging(tmpdir: Any) -> None:
     """Тест функции get_time_for_greeting для записи в лог"""
     logger_mock = MagicMock()
     logger_mock.info.return_value = None
@@ -193,7 +212,7 @@ def test_get_data_time_edge_cases() -> None:
 
 
 @patch("src.utils.setup_function_logger")
-def test_get_data_time_logging(mock_logger) -> None:
+def test_get_data_time_logging(mock_logger: MagicMock) -> None:
     """Тест функции get_data_time для логирования"""
     mock_logger.return_value = logging.getLogger("test")
     with patch.object(mock_logger.return_value, "info") as mock_info:
@@ -203,14 +222,12 @@ def test_get_data_time_logging(mock_logger) -> None:
 
 def test_get_data_time_logger_error() -> None:
     """Тест функции get_data_time при ошибке инициализации логгера"""
-    with patch(
-        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
-    ):
+    with patch("src.utils.setup_function_logger", side_effect=Exception("Logger error")):
         with pytest.raises(Exception, match="Ошибка в функции: Logger error"):
             get_data_time("2023-05-15 14:30:00")
 
 
-def test_get_path_and_period_success(tmpdir) -> None:
+def test_get_path_and_period_success(tmpdir: Any) -> None:
     """Тест успешного выполнения функции get_path_and_period"""
     # Создаем тестовый файл
     test_file = tmpdir.join("test.xlsx")
@@ -226,17 +243,12 @@ def test_get_path_and_period_success(tmpdir) -> None:
     )
     df.to_excel(test_file, sheet_name="Отчет по операциям", index=False)
 
-    result = get_path_and_period(
-        str(test_file), ["01.05.2023 00:00:00", "31.05.2023 23:59:59"]
-    )
+    result = get_path_and_period(str(test_file), ["01.05.2023 00:00:00", "31.05.2023 23:59:59"])
     assert len(result) == 3
-    assert (
-        result["Дата операции"].iloc[0].strftime("%d.%m.%Y %H:%M:%S")
-        == "01.05.2023 10:00:00"
-    )
+    assert result["Дата операции"].iloc[0].strftime("%d.%m.%Y %H:%M:%S") == "01.05.2023 10:00:00"
 
 
-def test_get_path_and_period_filtered(tmpdir) -> None:
+def test_get_path_and_period_filtered(tmpdir: Any) -> None:
     """Тест функции get_path_and_period для фильтрации по периоду"""
     test_file = tmpdir.join("test.xlsx")
     df = pd.DataFrame(
@@ -247,9 +259,7 @@ def test_get_path_and_period_filtered(tmpdir) -> None:
     )
     df.to_excel(test_file, sheet_name="Отчет по операциям", index=False)
 
-    result = get_path_and_period(
-        str(test_file), ["10.05.2023 00:00:00", "20.05.2023 23:59:59"]
-    )
+    result = get_path_and_period(str(test_file), ["10.05.2023 00:00:00", "20.05.2023 23:59:59"])
     assert len(result) == 1
     assert result["Дата операции"].iloc[0].strftime("%d.%m.%Y") == "15.05.2023"
 
@@ -257,12 +267,10 @@ def test_get_path_and_period_filtered(tmpdir) -> None:
 def test_get_path_and_period_file_not_found() -> None:
     """Тест функции get_path_and_period с несуществующим файлом"""
     with pytest.raises(Exception):
-        get_path_and_period(
-            "nonexistent_file.xlsx", ["01.01.2023 00:00:00", "31.12.2023 23:59:59"]
-        )
+        get_path_and_period("nonexistent_file.xlsx", ["01.01.2023 00:00:00", "31.12.2023 23:59:59"])
 
 
-def test_get_path_and_period_invalid_period(tmpdir) -> None:
+def test_get_path_and_period_invalid_period(tmpdir: Any) -> None:
     """Тест функции get_path_and_period с некорректным периодом"""
     test_file = tmpdir.join("test.xlsx")
     pd.DataFrame().to_excel(test_file)
@@ -273,31 +281,25 @@ def test_get_path_and_period_invalid_period(tmpdir) -> None:
 
     with pytest.raises(Exception):
         # Начальная дата больше конечной
-        get_path_and_period(
-            str(test_file), ["31.12.2023 23:59:59", "01.01.2023 00:00:00"]
-        )
+        get_path_and_period(str(test_file), ["31.12.2023 23:59:59", "01.01.2023 00:00:00"])
 
 
-def test_get_path_and_period_missing_column(tmpdir) -> None:
+def test_get_path_and_period_missing_column(tmpdir: Any) -> None:
     """Тест функции get_path_and_period с отсутствующей колонкой"""
     test_file = tmpdir.join("test.xlsx")
     pd.DataFrame({"Неправильная колонка": [1, 2, 3]}).to_excel(test_file)
 
     with pytest.raises(Exception):
-        get_path_and_period(
-            str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"]
-        )
+        get_path_and_period(str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"])
 
 
-def test_get_path_and_period_empty_file(tmpdir) -> None:
+def test_get_path_and_period_empty_file(tmpdir: Any) -> None:
     """Тест функции get_path_and_period с пустым файлом"""
     test_file = tmpdir.join("test.xlsx")
     pd.DataFrame().to_excel(test_file)
 
     with pytest.raises(Exception):
-        get_path_and_period(
-            str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"]
-        )
+        get_path_and_period(str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"])
 
 
 def test_get_path_and_period_wrong_types() -> None:
@@ -315,7 +317,8 @@ def test_get_path_and_period_wrong_types() -> None:
 
 @patch("os.path.exists")
 @patch("pandas.read_excel")
-def test_get_path_and_period_logging(mock_read, mock_exists, tmpdir):
+def test_get_path_and_period_logging(mock_read: MagicMock, mock_exists: MagicMock, tmpdir: Any) -> None:
+    """Тест логирования функции get_path_and_period"""
     test_file = tmpdir.join("test.xlsx")
 
     mock_exists.return_value = True
@@ -331,25 +334,19 @@ def test_get_path_and_period_logging(mock_read, mock_exists, tmpdir):
     with patch("src.utils.setup_function_logger") as mock_logger:
         mock_logger.return_value = logging.getLogger("test")
         with patch.object(mock_logger.return_value, "info") as mock_info:
-            result = get_path_and_period(
-                str(test_file), ["01.05.2023 00:00:00", "01.05.2023 23:59:59"]
-            )
+            result = get_path_and_period(str(test_file), ["01.05.2023 00:00:00", "01.05.2023 23:59:59"])
             assert isinstance(result, pd.DataFrame)
             assert mock_info.call_count == 2
 
 
-def test_get_path_and_period_logger_error(tmpdir) -> None:
+def test_get_path_and_period_logger_error(tmpdir: Any) -> None:
     """Тест функции get_path_and_period при ошибке инициализации логгера"""
     test_file = tmpdir.join("test.xlsx")
     pd.DataFrame().to_excel(test_file)
 
-    with patch(
-        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
-    ):
+    with patch("src.utils.setup_function_logger", side_effect=Exception("Logger error")):
         with pytest.raises(Exception):
-            get_path_and_period(
-                str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"]
-            )
+            get_path_and_period(str(test_file), ["01.01.2023 00:00:00", "31.12.2023 23:59:59"])
 
 
 def test_get_card_with_spend_success() -> None:
@@ -439,7 +436,7 @@ def test_get_card_with_spend_row_error_handling() -> None:
 
 
 @patch("src.utils.setup_function_logger")
-def test_get_card_with_spend_logging(mock_logger) -> None:
+def test_get_card_with_spend_logging(mock_logger: MagicMock) -> None:
     """Тест логирования функции get_card_with_spend"""
     test_data = {
         "Номер карты": ["*5678"],
@@ -465,9 +462,7 @@ def test_get_card_with_spend_logger_error() -> None:
     }
     df = pd.DataFrame(test_data)
 
-    with patch(
-        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
-    ):
+    with patch("src.utils.setup_function_logger", side_effect=Exception("Logger error")):
         with pytest.raises(Exception):
             get_card_with_spend(df)
 
@@ -536,7 +531,7 @@ def test_get_top_transactions_wrong_input_type() -> None:
 
 
 @patch("src.utils.setup_function_logger")
-def test_get_top_transactions_logging(mock_logger) -> None:
+def test_get_top_transactions_logging(mock_logger: MagicMock) -> None:
     """Тест логирования функции get_top_transactions"""
     test_data = {
         "Дата платежа": ["31.12.2021"],
@@ -562,14 +557,12 @@ def test_get_top_transactions_logger_error() -> None:
     }
     df = pd.DataFrame(test_data)
 
-    with patch(
-        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
-    ):
+    with patch("src.utils.setup_function_logger", side_effect=Exception("Logger error")):
         with pytest.raises(Exception):
             get_top_transactions(df, 1)
 
 
-def test_get_currency_success(tmpdir) -> None:
+def test_get_currency_success(tmpdir: Any) -> None:
     """Тест успешного выполнения функции get_currency"""
     # Создаю тестовый JSON файл
     test_json = tmpdir.join("test_currency.json")
@@ -593,7 +586,7 @@ def test_get_currency_file_not_found() -> None:
         get_currency("nonexistent_file.json")
 
 
-def test_get_currency_invalid_json(tmpdir) -> None:
+def test_get_currency_invalid_json(tmpdir: Any) -> None:
     """Тест функции get_currency с невалидным JSON"""
     test_json = tmpdir.join("invalid.json")
     test_json.write("{invalid json}")
@@ -602,7 +595,7 @@ def test_get_currency_invalid_json(tmpdir) -> None:
         get_currency(str(test_json))
 
 
-def test_get_currency_missing_key(tmpdir) -> None:
+def test_get_currency_missing_key(tmpdir: Any) -> None:
     """Тест функции get_currency с отсутствующим обязательным полем"""
     test_json = tmpdir.join("missing_key.json")
     test_json.write(json.dumps({"wrong_key": ["USD"]}))
@@ -611,7 +604,7 @@ def test_get_currency_missing_key(tmpdir) -> None:
         get_currency(str(test_json))
 
 
-def test_get_currency_empty_currencies(tmpdir) -> None:
+def test_get_currency_empty_currencies(tmpdir: Any) -> None:
     """Тест функции get_currency с пустым списком валют"""
     test_json = tmpdir.join("empty_currencies.json")
     test_json.write(json.dumps({"user_currencies": []}))
@@ -621,7 +614,7 @@ def test_get_currency_empty_currencies(tmpdir) -> None:
         assert len(result) == 0
 
 
-def test_get_currency_api_error(tmpdir) -> None:
+def test_get_currency_api_error(tmpdir: Any) -> None:
     """Тест функции get_currency с ошибкой API"""
     test_json = tmpdir.join("test_api_error.json")
     test_json.write(json.dumps({"user_currencies": ["USD"]}))
@@ -634,7 +627,7 @@ def test_get_currency_api_error(tmpdir) -> None:
         assert len(result) == 0
 
 
-def test_get_currency_invalid_response(tmpdir) -> None:
+def test_get_currency_invalid_response(tmpdir: Any) -> None:
     """Тест функции get_currency с некорректным ответом API"""
     test_json = tmpdir.join("test_invalid_response.json")
     test_json.write(json.dumps({"user_currencies": ["USD"]}))
@@ -659,7 +652,7 @@ def test_get_currency_wrong_input_type() -> None:
 
 
 @patch("src.utils.setup_function_logger")
-def test_get_currency_logging(mock_logger, tmpdir) -> None:
+def test_get_currency_logging(mock_logger: MagicMock, tmpdir: Any) -> None:
     """Тест логирования функции get_currency"""
     test_json = tmpdir.join("test_logging.json")
     test_json.write(json.dumps({"user_currencies": ["USD"]}))
@@ -675,19 +668,17 @@ def test_get_currency_logging(mock_logger, tmpdir) -> None:
             assert mock_info.call_count == 2
 
 
-def test_get_currency_logger_error(tmpdir) -> None:
+def test_get_currency_logger_error(tmpdir: Any) -> None:
     """Тест функции get_currency при ошибке инициализации логгера"""
     test_json = tmpdir.join("test_logger_error.json")
     test_json.write(json.dumps({"user_currencies": ["USD"]}))
 
-    with patch(
-        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
-    ):
+    with patch("src.utils.setup_function_logger", side_effect=Exception("Logger error")):
         with pytest.raises(Exception):
             get_currency(str(test_json))
 
 
-def test_get_stock_prices_success(tmpdir) -> None:
+def test_get_stock_prices_success(tmpdir: Any) -> None:
     """Тест успешного выполнения функции get_stock_prices"""
     # Создаем тестовый JSON файл
     test_json = tmpdir.join("test_stocks.json")
@@ -707,13 +698,11 @@ def test_get_stock_prices_success(tmpdir) -> None:
 
 def test_get_stock_prices_file_not_found() -> None:
     """Тест функции get_stock_prices с несуществующим файлом"""
-    with pytest.raises(
-        Exception, match="Ошибка в функции: Файл не найден: nonexistent_file.json"
-    ):
+    with pytest.raises(Exception, match="Ошибка в функции: Файл не найден: nonexistent_file.json"):
         get_stock_prices("nonexistent_file.json")
 
 
-def test_get_stock_prices_invalid_json(tmpdir) -> None:
+def test_get_stock_prices_invalid_json(tmpdir: Any) -> None:
     """Тест функции get_stock_prices с невалидным JSON"""
     test_json = tmpdir.join("invalid.json")
     test_json.write("{invalid json}")
@@ -722,7 +711,7 @@ def test_get_stock_prices_invalid_json(tmpdir) -> None:
         get_stock_prices(str(test_json))
 
 
-def test_get_stock_prices_missing_key(tmpdir) -> None:
+def test_get_stock_prices_missing_key(tmpdir: Any) -> None:
     """Тест функции get_stock_prices с отсутствующим обязательным полем"""
     test_json = tmpdir.join("missing_key.json")
     test_json.write(json.dumps({"wrong_key": ["AAPL"]}))
@@ -731,7 +720,7 @@ def test_get_stock_prices_missing_key(tmpdir) -> None:
         get_stock_prices(str(test_json))
 
 
-def test_get_stock_prices_empty_stocks(tmpdir) -> None:
+def test_get_stock_prices_empty_stocks(tmpdir: Any) -> None:
     """Тест функции get_stock_prices с пустым списком акций"""
     test_json = tmpdir.join("empty_stocks.json")
     test_json.write(json.dumps({"user_stocks": []}))
@@ -741,7 +730,7 @@ def test_get_stock_prices_empty_stocks(tmpdir) -> None:
         assert len(result) == 0
 
 
-def test_get_stock_prices_api_error(tmpdir) -> None:
+def test_get_stock_prices_api_error(tmpdir: Any) -> None:
     """Тест функции get_stock_prices с ошибкой API"""
     test_json = tmpdir.join("test_api_error.json")
     test_json.write(json.dumps({"user_stocks": ["AAPL"]}))
@@ -754,7 +743,7 @@ def test_get_stock_prices_api_error(tmpdir) -> None:
         assert len(result) == 0
 
 
-def test_get_stock_prices_invalid_response(tmpdir) -> None:
+def test_get_stock_prices_invalid_response(tmpdir: Any) -> None:
     """Тест функции get_stock_prices с некорректным ответом API"""
     test_json = tmpdir.join("test_invalid_response.json")
     test_json.write(json.dumps({"user_stocks": ["AAPL"]}))
@@ -768,7 +757,7 @@ def test_get_stock_prices_invalid_response(tmpdir) -> None:
         assert len(result) == 0
 
 
-def test_get_stock_prices_invalid_price_format(tmpdir) -> None:
+def test_get_stock_prices_invalid_price_format(tmpdir: Any) -> None:
     """Тест функции get_stock_prices с некорректным форматом цены"""
     test_json = tmpdir.join("test_invalid_price.json")
     test_json.write(json.dumps({"user_stocks": ["AAPL"]}))
@@ -793,7 +782,7 @@ def test_get_stock_prices_wrong_input_type() -> None:
 
 
 @patch("src.utils.setup_function_logger")
-def test_get_stock_prices_logging(mock_logger, tmpdir) -> None:
+def test_get_stock_prices_logging(mock_logger: MagicMock, tmpdir: Any) -> None:
     """Тест логирования функции get_stock_prices"""
     test_json = tmpdir.join("test_logging.json")
     test_json.write(json.dumps({"user_stocks": ["AAPL"]}))
@@ -809,14 +798,12 @@ def test_get_stock_prices_logging(mock_logger, tmpdir) -> None:
             assert mock_info.call_count == 2
 
 
-def test_get_stock_prices_logger_error(tmpdir) -> None:
+def test_get_stock_prices_logger_error(tmpdir: Any) -> None:
     """Тест функции get_stock_prices при ошибке инициализации логгера"""
     test_json = tmpdir.join("test_logger_error.json")
     test_json.write(json.dumps({"user_stocks": ["AAPL"]}))
 
-    with patch(
-        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
-    ):
+    with patch("src.utils.setup_function_logger", side_effect=Exception("Logger error")):
         with pytest.raises(Exception):
             get_stock_prices(str(test_json))
 
@@ -841,17 +828,13 @@ def test_get_cashback_by_category_success() -> None:
 def test_get_cashback_by_category_empty_df() -> None:
     """Тест функции get_cashback_by_category с пустым DataFrame"""
     df = pd.DataFrame()
-    with pytest.raises(
-        Exception, match="Ошибка в функции: DataFrame не может быть пустым"
-    ):
+    with pytest.raises(Exception, match="Ошибка в функции: DataFrame не может быть пустым"):
         get_cashback_by_category(df)
 
 
 def test_get_cashback_by_category_wrong_input_type() -> None:
     """Тест функции get_cashback_by_category с неправильным типом входных данных"""
-    with pytest.raises(
-        Exception, match="Ошибка в функции: Входные данные должны быть pandas DataFrame"
-    ):
+    with pytest.raises(Exception, match="Ошибка в функции: Входные данные должны быть pandas DataFrame"):
         get_cashback_by_category("not a dataframe")  # type: ignore[arg-type]
         # Строка вместо DataFrame
 
@@ -915,7 +898,7 @@ def test_get_cashback_by_category_empty_category_name() -> None:
 
 
 @patch("src.utils.setup_function_logger")
-def test_get_cashback_by_category_logging(mock_logger) -> None:
+def test_get_cashback_by_category_logging(mock_logger: MagicMock) -> None:
     """Тест логирования функции get_cashback_by_category"""
     test_data = {
         "Сумма операции": [-100.0],
@@ -941,8 +924,6 @@ def test_get_cashback_by_category_logger_error() -> None:
     }
     df = pd.DataFrame(test_data)
 
-    with patch(
-        "src.utils.setup_function_logger", side_effect=Exception("Logger error")
-    ):
+    with patch("src.utils.setup_function_logger", side_effect=Exception("Logger error")):
         with pytest.raises(Exception):
             get_cashback_by_category(df)
